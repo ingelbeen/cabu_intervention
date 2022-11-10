@@ -4,6 +4,7 @@
 # baseline Oct-Déc 2022                     #
 #############################################
 # last update: 10/11/2022
+# contributeurs: Djibril, Brecht
 
 #### installer+charger les packages, importer+nettoyer les données ####
 # install.packages("pacman")
