@@ -2,12 +2,12 @@
 # CABU-C WP4 BACTERIOLOGIE                  #
 # Link sample results to baseline data      #
 #############################################
-# last update: 19/10/2023
+# last update: 21/10/2023
 
 # install and load packages
 pacman::p_load(readxl,lubridate,dplyr,ggplot2)
 
-# 1.1 IMPORT DATA
+### 1.1 IMPORT DATA ####
 # import lab result datasets
 rodentsR1results <- read_excel("C:/Users/bingelbeen/OneDrive - ITG/AMR BIT/CABU JPIAMR/WP4/Kimpese_WP4results.xlsx", 
                                sheet = "rodentsR1")
@@ -15,6 +15,9 @@ rodentsR2results <- read_excel("C:/Users/bingelbeen/OneDrive - ITG/AMR BIT/CABU 
                                sheet = "rodentsR2")
 humanR1results <- read_excel("C:/Users/bingelbeen/OneDrive - ITG/AMR BIT/CABU JPIAMR/WP4/Kimpese_WP4results.xlsx", 
                                sheet = "humanR1")
+humanR1results <- humanR1results %>% select_if(function(x) !all(is.na(x))) # remove empty variable columns
+humanR1results <- humanR1results %>% filter(!is.na(Identifiant)|!is.na(`Date reception`)|!is.na(`Escherichia coli`)) # remove empty rows
+
 humanR2results <- read_excel("C:/Users/bingelbeen/OneDrive - ITG/AMR BIT/CABU JPIAMR/WP4/Kimpese_WP4results.xlsx", 
                                sheet = "humanR2")
 humanR2results <- humanR2results %>% select_if(function(x) !all(is.na(x))) # remove empty variable columns
@@ -22,7 +25,7 @@ humanR2results <- humanR2results %>% filter(!is.na(Identifiant)|!is.na(`Date rec
 
 
 # import rodent characteristics, incl location
-rodents_char <- read_excel("C:/Users/bingelbeen/OneDrive - ITG/AMR BIT/CABU JPIAMR/WP3/FIELDLIST_KIM_RODENTS1-612_ITG.xlsx", 
+rodents_char <- read_excel("C:/Users/bingelbeen/OneDrive - ITG/AMR BIT/CABU JPIAMR/WP3/20230803_FIELDLIST_KIM_RODENTS1-978.xlsx", 
                            sheet = "Captures")
 # import human household data
 # R1
@@ -38,6 +41,7 @@ HHlocationR1 <- read_excel("C:/Users/bingelbeen/OneDrive - ITG/AMR BIT/CABU JPIA
                          sheet = "CABU_enq_comm_2023")
 HHlocationR1 <- subset(HHlocationR1, select = -c(Nom, Prénom)) # remove identifiers
 HHlocationR1 <- HHlocationR1 %>% select_if(function(x) !all(is.na(x))) # remove empty variable columns
+HHlocationR1 <- HHlocationR1 %>%  rename(cluster = `cluster (village ou quartier où se situe le ménage)`)
 
 # merge ODK individual and HH data (including location)
 HHR1 <- merge(HHindividualR1, HHlocationR1, by.x = "_submission__id", by.y = "_id", all.x = T)
@@ -79,11 +83,12 @@ HHlocationR2 <- read_excel("C:/Users/bingelbeen/OneDrive - ITG/AMR BIT/CABU JPIA
                                                             "text", "text", "text", "numeric", 
                                                             "numeric"))
 HHlocationR2 <- HHlocationR2 %>% select_if(function(x) !all(is.na(x))) # remove empty variable columns
+HHlocationR2 <- HHlocationR2 %>%  rename(cluster = `cluster (village ou quartier où se situe le ménage)`)
 
 # merge ODK individual and HH data (including location)
 HHR2 <- merge(HHindividualR2, HHlocationR2, by.x = "_submission__id", by.y = "_id", all.x = T)
 
-# 1.2 MERGE RODENT DATA
+### 1.2 MERGE RODENT DATA ####
 # append rodent results
 rodentsR1results$round <- "R1"
 rodentsR2results$round <- "R2"
@@ -92,8 +97,6 @@ rodentsresults <- rbind(rodentsR1results, rodentsR2results)
 rodentsresults <- subset(rodentsresults, !(is.na(Identifiant) & is.na(`Date reception`)))
 # reformat date
 rodentsresults$receptiondate <- as.Date(rodentsresults$`Date reception`)
-# FOR NOW REMOVE OBSERVATIONS SECOND ROUND - REMOVE THIS LINE ONCE THE CHAR OF SECOND ROUND ADDED
-rodentsresults <- rodentsresults %>% filter(rodentsresults$receptiondate < "2023-06-01")
 # reformat ID
 rodentsresults$id <- substr(tolower(gsub("[ -]", "", rodentsresults$Identifiant)), 1, 6)
 # check for duplicated values in rodentsresults$id
@@ -103,17 +106,33 @@ if (length(duplicates) > 0) {
   cat("Duplicated values in rodentsresults$id: ", paste(duplicates, collapse = ", "), "\n")
 } else {
   cat("No duplicated values in rodentsresults$id\n")
-} # kim481 WHY??
+} # kim481 kim923 
+# remove duplicates
+dups <- which(duplicated(rodentsresults%>%select(id))) 
+rodentsresults <- rodentsresults %>% filter(!row.names(rodentsresults) %in% duplicates)
 
 # reformat ID of rodents_char
 rodents_char$id <- substr(tolower(gsub("[ -]", "", rodents_char$ua_id)), 1, 6)
+
 # remove the first 247 captured rodents (no correct bacteriology test done)
 rodents_char <- rodents_char %>% filter(as.numeric(gsub("[^0-9]", "", id)) >= 248)
 
 # merge rodent char with results
 rodentmerged <- merge(rodents_char, rodentsresults, by = "id", all = T) # one observation to remove (duplicate lab result) once clarified what caused the duplicate
 
-# 1.3 MERGE HUMAN DATA R1
+# identify mismatches
+rodentmismatches_missingchar <- rodentmerged %>% filter(is.na(ua_id)) # no lab results without matched characteristic data
+rodentmismatches_missingresults <- rodentmerged %>% filter(is.na(Identifiant)) %>% select(id, ua_id, day, month, year, Location) # 17 samples without result
+
+# check if all have results
+table(rodentsresults$`Escherichia coli`, useNA = "always")
+table(rodentmerged$`Escherichia coli`, useNA = "always")
+
+# export
+write.csv(rodentmismatches_missingresults, "rodentmismatches_missingresults.csv")
+write.csv(rodentmerged, "rodentmerged.csv")
+
+### 1.3 MERGE HUMAN DATA R1 ####
 # make a var with a common id (of sample)
 table(HHR1$`Numéro de l'échantillon`)
 HHR1$id <- substr(tolower(gsub("[ -]", "", HHR1$`Numéro de l'échantillon`)), 1, 7)
@@ -146,7 +165,7 @@ unmatchedidinkobo <- humanR1merged %>% filter(is.na(receptiondate)==T) %>% selec
 write.csv(unmatchedidinhumanlabresults, "unmatchedidinhumanlabresults.csv")
 write.csv(unmatchedidinkobo, "unmatchedidinkobo.csv")
 
-# 1.4 MERGE HUMAN DATA R2
+### 1.4 MERGE HUMAN DATA R2 ####
 # make a var with a common id (of sample)
 table(HHR2$`Numéro de l'échantillon`)
 HHR2$id <- substr(tolower(gsub("[ -]", "", HHR2$`Numéro de l'échantillon`)), 1, 7)
@@ -186,3 +205,39 @@ colnames(HHR2_IDdate) <- c("id_individu", "dateR2", "nomR2", "prénomR2", "clust
 HHvisits_selles_R1R2 <- merge(HHR1_IDdate, HHR2_IDdate, by = "id_individu", all = T)
 # export to csv
 write.csv(HHvisits_selles_R1R2, "HHvisits_selles_R1R2.csv")
+
+### 1.6 EXTRACTION SELECTION ####
+# show for each cluster the number of isolates and ESBL E. coli positives
+table(humanR1merged$cluster, humanR1merged$`Escherichia coli`, useNA = "always")
+table(humanR2merged$cluster, humanR2merged$`Escherichia coli`, useNA = "always")
+
+# mark which clusters rodents were collected
+rodentclusters <- c("CELLULE MBUKA3", "KIANDU", "KILUEKA", "KIMAKU", "LUKENGEZI ET POSTE", "MALANGA")
+humanR1merged$rodent <- ifelse(humanR1merged$cluster %in% rodentclusters, "yes", "no")
+table(humanR1merged$cluster, humanR1merged$rodent)
+humanR2merged$rodent <- ifelse(humanR2merged$cluster %in% rodentclusters, "yes", "no")
+table(humanR2merged$cluster, humanR2merged$rodent)
+
+# number of samples collected and ESBL identified in villages where rodents were collected
+table(humanR1merged$rodent, humanR1merged$`Escherichia coli`, useNA = "always") # 48 ESBL E. coli identified in humans in villages where rodents were collected
+table(humanR2merged$rodent, humanR2merged$`Escherichia coli`, useNA = "always") # 20 ESBL E. coli identified in humans in villages where rodents were collected
+
+# STILL NEED TO CORRECTLY LINK THOSE MISSING
+# create a list of IDs for which to check the result (neither RAS or OUI)
+missingESBLresultshumanR1 <- humanR1merged %>% filter(is.na(humanR1merged$`Escherichia coli`)) %>% select(id, receptiondate)
+missingESBLresultshumanR2 <- humanR2merged %>% filter(is.na(humanR2merged$`Escherichia coli`)) %>% select(id, receptiondate)
+# export
+write.csv(missingESBLresultshumanR1, "missingESBLresultshumanR1.csv")
+write.csv(missingESBLresultshumanR2, "missingESBLresultshumanR2.csv")
+
+### 1.7 WASH INDICATORS IN RODENT VILLAGES ####
+# add var for whether rodents were collected in that village
+HHlocationR1$rodent <- ifelse(HHlocationR1$cluster %in% rodentclusters, "yes", "no")
+table(HHlocationR1$cluster, HHlocationR1$rodent)
+# check how many households in rodent villages
+HHlocation_rodents <- HHlocationR1 %>%
+  filter(rodent=="yes") %>%
+  group_by(`ID ménage`) %>%
+  summarise(n=n())
+count(HHlocation_rodents)
+
