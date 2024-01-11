@@ -1,4 +1,4 @@
-# "Optimising Community Antibiotic Use and Infection Control With Behavioural Interventions in Burkina Faso and DR Congo (CABU-EICO project)"
+# Optimising Community Antibiotic Use and Infection Control With Behavioural Interventions in Burkina Faso and DR Congo (CABU-EICO project)
 This repository contains the study protocol, questionnaires, and analysis scripts. Anonymised data collected for this study will be added when data collection and curation completed.
 
 ## Study registration 
