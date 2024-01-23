@@ -2,7 +2,7 @@
 # CABU-C WP4 BACTERIOLOGIE                  #
 # Link sample results to baseline data      #
 #############################################
-# last update: 19/10/2023
+# last update: 21/10/2023
 
 # install and load packages
 pacman::p_load(readxl,lubridate,dplyr,ggplot2)
