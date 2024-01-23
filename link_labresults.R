@@ -2,7 +2,6 @@
 # CABU-C WP4 BACTERIOLOGIE                  #
 # Link sample results to baseline data      #
 #############################################
-# last update: 21/10/2023
 
 # install and load packages
 pacman::p_load(readxl,lubridate,dplyr,ggplot2)
@@ -25,19 +24,19 @@ humanR2results <- humanR2results %>% filter(!is.na(Identifiant)|!is.na(`Date rec
 
 
 # import rodent characteristics, incl location
-rodents_char <- read_excel("C:/Users/bingelbeen/OneDrive - ITG/AMR BIT/CABU JPIAMR/WP3/20230803_FIELDLIST_KIM_RODENTS1-978.xlsx", 
+rodents_char <- read_excel("db/rodentcollection/20230803_FIELDLIST_KIM_RODENTS1-978.xlsx", 
                            sheet = "Captures")
 # import human household data
 # R1
 # individuals with samples collected
-HHindividualR1 <- read_excel("C:/Users/bingelbeen/OneDrive - ITG/AMR BIT/CABU JPIAMR/WP4/CABU_enq_comm_2023_-_all_versions_-_labels_-_2023-04-25-14-13-13.xlsx", 
+HHindividualR1 <- read_excel("db/householdsurvey/CABU_enq_comm_2023_-_all_versions_-_labels_-_2024-01-18-14-51-24.xlsx", 
                            sheet = "group_io0xt32")
 # remove 'Nom' and 'Prénom' columns
 # HHindividualR1 <- subset(HHindividualR1, select = -c(Nom, Prénom)) # remove identifiers
 HHindividualR1 <- HHindividualR1 %>% select_if(function(x) !all(is.na(x))) # remove empty variable columns
 
 # HH data
-HHlocationR1 <- read_excel("C:/Users/bingelbeen/OneDrive - ITG/AMR BIT/CABU JPIAMR/WP4/CABU_enq_comm_2023_-_all_versions_-_labels_-_2023-04-25-14-13-13.xlsx", 
+HHlocationR1 <- read_excel("db/householdsurvey/CABU_enq_comm_2023_-_all_versions_-_labels_-_2024-01-18-14-51-24.xlsx", 
                          sheet = "CABU_enq_comm_2023")
 HHlocationR1 <- subset(HHlocationR1, select = -c(Nom, Prénom)) # remove identifiers
 HHlocationR1 <- HHlocationR1 %>% select_if(function(x) !all(is.na(x))) # remove empty variable columns
@@ -47,14 +46,14 @@ HHlocationR1 <- HHlocationR1 %>%  rename(cluster = `cluster (village ou quartier
 HHR1 <- merge(HHindividualR1, HHlocationR1, by.x = "_submission__id", by.y = "_id", all.x = T)
 
 # R2
-HHindividualR2 <- read_excel("C:/Users/bingelbeen/OneDrive - ITG/AMR BIT/CABU JPIAMR/WP4/CABU_R2_-_all_versions_-_labels_-_2023-10-19-09-17-36.xlsx", 
+HHindividualR2 <- read_excel("db/householdsurvey/CABU_R2_-_all_versions_-_labels_-_2024-01-18-14-52-26.xlsx", 
                              sheet = "group_io0xt32")
 # remove 'Nom' and 'Prénom' columns
 # HHindividualR2 <- subset(HHindividualR2, select = -c(Nom, Prénom)) # remove identifiers
 HHindividualR2 <- HHindividualR2 %>% select_if(function(x) !all(is.na(x))) # remove empty variable columns
 
 # HH date
-HHlocationR2 <- read_excel("C:/Users/bingelbeen/OneDrive - ITG/AMR BIT/CABU JPIAMR/WP4/CABU_R2_-_all_versions_-_labels_-_2023-10-19-09-17-36.xlsx", 
+HHlocationR2 <- read_excel("db/householdsurvey/CABU_R2_-_all_versions_-_labels_-_2024-01-18-14-52-26.xlsx", 
                            sheet = "CABU_R2", col_types = c("date", 
                                                             "text", "numeric", "text", "text", 
                                                             "numeric", "numeric", "numeric", 
@@ -127,6 +126,9 @@ rodentmismatches_missingresults <- rodentmerged %>% filter(is.na(Identifiant)) %
 # check if all have results
 table(rodentsresults$`Escherichia coli`, useNA = "always")
 table(rodentmerged$`Escherichia coli`, useNA = "always")
+table(rodentmerged$round, useNA = "always")
+# those without results
+rodentmergednoround <- rodentmerged %>% filter(is.na(round))
 
 # export
 write.csv(rodentmismatches_missingresults, "rodentmismatches_missingresults.csv")
@@ -231,6 +233,10 @@ write.csv(missingESBLresultshumanR1, "missingESBLresultshumanR1.csv")
 write.csv(missingESBLresultshumanR2, "missingESBLresultshumanR2.csv")
 
 ### 1.7 WASH INDICATORS IN RODENT VILLAGES ####
+# number of households
+HH <- humanR1merged %>% group_by(`ID ménage`) %>% summarise(nhouseholds=n())
+count(HH)
+
 # add var for whether rodents were collected in that village
 HHlocationR1$rodent <- ifelse(HHlocationR1$cluster %in% rodentclusters, "yes", "no")
 table(HHlocationR1$cluster, HHlocationR1$rodent)
