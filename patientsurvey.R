@@ -4,7 +4,7 @@
 #####################################################
 
 # install/load packages
-pacman::p_load(readxl, lubridate, haven, dplyr, ggplot2, survey, MASS,srvyr, gtsummary)
+pacman::p_load(readxl, lubridate, haven, dplyr, digest, ggplot2, survey, srvyr, sitrep, gtsummary)
 
 #### 1. IMPORT DATA #### 
 # 1.1 Kimpese baseline
@@ -343,6 +343,20 @@ watchkim$antibiotic[is.na(watchkim$antibiotic)] <- 0
 table(watchkim$watch, useNA = "always")
 table(watchkim$antibiotic, useNA = "always")
 
+# replace chr vars by factors variables
+watchkim$intervention <- as.factor(watchkim$intervention)
+watchkim$choices_cluster <- as.factor(watchkim$choices_cluster)
+watchkim$agegroup <- as.factor(watchkim$agegroup)
+watchkim$providertype <- as.factor(watchkim$providertype)
+
+# consider healthcare providers as sampling unit, regardless of cluster villages (since all healthcare provieders in those villages included)
+watchkim$cluster <- paste(watchkim$choices_cluster, "-", watchkim$providertype, "-", watchkim$providernr) # 128 providers
+watchkim$cluster <- as.factor(watchkim$cluster)
+
+# anonymize the provider clusters to prevent identification of providers
+watchkim$clusterID <- sapply(watchkim$cluster, function(clusterID) {
+  return(substring(digest(as.character(clusterID), algo = "crc32"), 1, 5))})
+
 #### 1. DESCRIPTION PARTICIPANTS ####
 # n surveys
 table(patient_kim$round, useNA = "always")
@@ -359,7 +373,82 @@ patient_kim$publicprivate <- "private"
 patient_kim$publicprivate[patient_kim$providertype=="healthcentre_publique"] <- "public"
 
 #### 2. PREVALENCE WATCH ANTIBIOTIC USE ####
-# 2.1. crude
+# 2.1 two-stage cluster sampling-corrected prevalence by group
+# ANY PROVIDER
+# specify cluster design (assuming here we selected health provider, not by strata, for now)
+surveydesign <- svydesign(id = ~clusterID, data = watchkim, nest = TRUE)
+
+# currently no weighing is done for the frequency of healthcare seeking by provider/type of provider so that a provider that is visited more frequently also contributes more to the overall prevalence, 
+# a weighing variable is ideally still added once it can be estimated from the household survey data
+
+svyciprop(~watch, surveydesign, na.rm = T)
+
+# prevalence watch at baseline
+watchkim_bl <- watchkim %>% filter(round == "baseline")
+surveydesign_bl <- svydesign(id = ~clusterID, data = watchkim_bl, nest = TRUE)
+
+svyciprop(~watch, surveydesign_bl, na.rm = T)
+
+# prevalence watch post intervention in intervention
+watchkim_intervention <- watchkim %>% filter(round == "post" & intervention == "intervention")
+surveydesign_intervention <- svydesign(id = ~clusterID, data = watchkim_intervention, nest = TRUE)
+svyciprop(~watch, surveydesign_intervention, na.rm = T)
+
+# prevalence watch post intervention in control
+watchkim_control <- watchkim %>% filter(round == "post" & intervention == "control")
+surveydesign_control <- svydesign(id = ~clusterID, data = watchkim_control, nest = TRUE)
+svyciprop(~watch, surveydesign_control, na.rm = T)
+
+# HEALTH CENTRE
+# prevalence watch at baseline
+watchkim_bl_hc <- watchkim %>% filter(round == "baseline" & providertype=="healthcentre_publique")
+surveydesign_bl <- svydesign(id = ~clusterID, data = watchkim_bl_hc, nest = TRUE)
+svyciprop(~watch, surveydesign_bl, na.rm = T)
+
+# prevalence watch post intervention in intervention
+watchkim_intervention_hc <- watchkim %>% filter(round == "post" & intervention == "intervention" & providertype=="healthcentre_publique")
+surveydesign_intervention <- svydesign(id = ~clusterID, data = watchkim_intervention_hc, nest = TRUE)
+svyciprop(~watch, surveydesign_intervention, na.rm = T)
+
+# prevalence watch post intervention in control
+watchkim_control_hc <- watchkim %>% filter(round == "post" & intervention == "control" & providertype=="healthcentre_publique")
+surveydesign_control <- svydesign(id = ~clusterID, data = watchkim_control_hc, nest = TRUE)
+svyciprop(~watch, surveydesign_control, na.rm = T)
+
+
+# PHARMACY
+# prevalence watch at baseline
+watchkim_bl_pharm <- watchkim %>% filter(round == "baseline" & providertype=="privatepharmacy")
+surveydesign_bl <- svydesign(id = ~clusterID, data = watchkim_bl_pharm, nest = TRUE)
+svyciprop(~watch, surveydesign_bl, na.rm = T)
+
+# prevalence watch post intervention in intervention
+watchkim_intervention_pharm <- watchkim %>% filter(round == "post" & intervention == "intervention" & providertype=="privatepharmacy")
+surveydesign_intervention <- svydesign(id = ~clusterID, data = watchkim_intervention_pharm, nest = TRUE)
+svyciprop(~watch, surveydesign_intervention, na.rm = T)
+
+# prevalence watch post intervention in control
+watchkim_control_pharm <- watchkim %>% filter(round == "post" & intervention == "control" & providertype=="privatepharmacy")
+surveydesign_control <- svydesign(id = ~clusterID, data = watchkim_control_pharm, nest = TRUE)
+svyciprop(~watch, surveydesign_control, na.rm = T)
+
+# PRIVATE CLINIC
+# prevalence watch at baseline
+watchkim_bl_clinic <- watchkim %>% filter(round == "baseline" & providertype=="privateclinic")
+surveydesign_bl <- svydesign(id = ~clusterID, data = watchkim_bl_clinic, nest = TRUE)
+svyciprop(~watch, surveydesign_bl, na.rm = T)
+
+# prevalence watch post intervention in intervention
+watchkim_intervention_clinic <- watchkim %>% filter(round == "post" & intervention == "intervention" & providertype=="privateclinic")
+surveydesign_intervention <- svydesign(id = ~clusterID, data = watchkim_intervention_clinic, nest = TRUE)
+svyciprop(~watch, surveydesign_intervention, na.rm = T)
+
+# prevalence watch post intervention in control
+watchkim_control_clinic <- watchkim %>% filter(round == "post" & intervention == "control" & providertype=="privateclinic")
+surveydesign_control <- svydesign(id = ~clusterID, data = watchkim_control_clinic, nest = TRUE)
+svyciprop(~watch, surveydesign_control, na.rm = T)
+
+# 2.2. crude - to double check if corrected estimates make sense and are different
 # crude difference pre and post intervention in control clusters
 watchcount_prepost <- table(watchkim$round[watchkim$intervention=="control"], watchkim$watch[watchkim$intervention=="control"], useNA = "always")
 watchcount_prepost
@@ -393,26 +482,11 @@ watchcount_post
 watchprev_post <- round(prop.table(watchcount_post, 1),2)
 watchprev_post
 
-# 2.2 two-stage cluster sampling-corrected prevalence by group
-# specify 2 stage cluster design, and strata
-watchkim$intervention <- as.factor(watchkim$intervention)
-watchkim$choices_cluster <- as.factor(watchkim$choices_cluster)
-watchkim$agegroup <- as.factor(watchkim$agegroup)
-watchkim$providertype <- as.factor(watchkim$providertype)
-
-clusterdesign <- svydesign(
-  id = ~ choices_cluster + providertype + providernr,
-  data = watchkim)
-# Calculate the proportion with 95% confidence intervals for the variable 'Watch'
-# currently no weighing is done for the frequency of healthcare seeking by provider/type of provider so that a provider that is visited more frequently also contributes more to the overall prevalence, 
-# a weighing variable is ideally still added once it can be estimated from the household survey data
-prop_by_provider <- svyby(~watch, ~providertype, clusterdesign, svyciprop, quantiles=0.5,ci=TRUE,vartype="ci")
-prop_by_provider
-
+#### 3. PREVALENCE RATIO WATCH ANTIBIOTIC USE INTERVENTION VS CONTROL ####
 # Model structure: ABU ~ Time + Intervention + Time*Intervention + confounders??
 # log binomial regression
-binregressionmodel <- glm(watch ~ round + intervention + round*intervention + providertype # + choices_cluster + agegroup + providernr
-             family = binomial(link = "logit"), # logit for logistic
+binregressionmodel <- glm(watch ~ round + intervention + round*intervention + providertype, # + choices_cluster + agegroup + providernr
+             family = binomial(link = "log"), # logit for logistic
              data = watchkim)
 summary(binregressionmodel)
 
@@ -424,7 +498,9 @@ rr
 ci_rr <- exp(coeci)
 ci_rr
 
-#### analyse journalier ####
+
+
+#### SUPPLEMENT. DAILY ANALYSIS DURING DATA COLLECTION analyse journalier ####
 # histogramme des enquêtes
 interviewdays <- as.numeric(max(patient$surveydate) - min(patient$surveydate))
 interviewdays
