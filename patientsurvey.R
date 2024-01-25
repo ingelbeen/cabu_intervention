@@ -4,9 +4,9 @@
 #####################################################
 
 # install/load packages
-pacman::p_load(readxl, lubridate, haven, dplyr, digest, ggplot2, survey, srvyr, sitrep, gtsummary)
+pacman::p_load(readxl, lubridate, haven, dplyr, tidyr, digest, ggplot2, survey, srvyr, gtsummary)
 
-#### 1. IMPORT DATA #### 
+#### 1. IMPORT DATA KIMPESE #### 
 # 1.1 Kimpese baseline
 # import patient data
 patient_kim_bl <- read_excel("db/patientsurvey/Questionnaire_patient_CABU-RDC_-_all_versions_-_English_-_2024-01-16-12-52-23.xlsx", 
@@ -61,10 +61,6 @@ patient_kim$agegroup[patient_kim$ageyears>4.999] <- "5-17 yr"
 patient_kim$agegroup[patient_kim$ageyears>17.999] <- "18-64 yr"
 patient_kim$agegroup[patient_kim$ageyears>64.999] <- "65+ yr"
 table(patient_kim$agegroup, useNA = "always")
-
-# var agegroup children vs adults
-patient_kim$adoadult[patient_kim$ageyears>17.99] <- "adult"
-patient_kim$adoadult[patient_kim$ageyears<18] <- "child/adolescent"
 
 # assign whether intervention or control cluster
 patient_kim <- patient_kim %>%
@@ -357,20 +353,254 @@ watchkim$cluster <- as.factor(watchkim$cluster)
 watchkim$clusterID <- sapply(watchkim$cluster, function(clusterID) {
   return(substring(digest(as.character(clusterID), algo = "crc32"), 1, 5))})
 
-#### 1. DESCRIPTION PARTICIPANTS ####
+# anonymize the provider clusters to prevent identification of providers and remove identifying info in the overall db
+kim$cluster <- paste(kim$choices_cluster, "-", kim$providertype, "-", kim$providernr) # 128 providers
+kim$clusterID <- sapply(kim$cluster, function(clusterID) {
+  return(substring(digest(as.character(clusterID), algo = "crc32"), 1, 5))})
+kim_anon <- kim %>% select(c("round", "intervention", "clusterID", "providertype", "today", "antibiotic","dispenserpharmacie", "patientnr", "caretaker", "sex", 
+                                        "ageyears", "educationlevel", "illness", "illness_spec", "illness_other", "symptoms", "symptoms/fever",
+                                        "symptoms/vomiting", "symptoms/diarrhoea", "symptoms/cough", "symptoms/mauxdegorge",
+                                        "symptoms/ecoulementnasale", "symptoms/other_respiratory_sign", "symptoms/rash", "symptoms/abdo_pain",
+                                        "symptoms/wound", "symptoms/myalgia", "symptoms/headache", "symptoms/nausea", "symptoms/prurite",
+                                        "symptoms/nosymptoms", "symptoms/othersymptoms", "symptoms_other", "date_onset", "diag_test",
+                                        "diag_test/none", "diag_test/RDT_malaria", "diag_test/microscopy_malaria", "diag_test/sputumtb",
+                                        "diag_test/other", "Comment_vous_vous_tes_procure", "diag_test_other", "quel_tait_le_diagnostic_final",
+                                        "quel_tait_le_diagnostic_final/pneumonia", "quel_tait_le_diagnostic_final/bronchitis",
+                                        "quel_tait_le_diagnostic_final/bronchiolitis", "quel_tait_le_diagnostic_final/malaria",
+                                        "quel_tait_le_diagnostic_final/typhoid", "quel_tait_le_diagnostic_final/gastroenteritis",
+                                        "quel_tait_le_diagnostic_final/unknown", "quel_tait_le_diagnostic_final/other", "diag_spec_other",
+                                        "absprescribed", "prescriptionwheredispensed", "prescriptionwhereother",
+                                        "nantibiotics", "matchedprescription", "nomatchreasons", "nomatchreason_other", "abgeneric", "abroute", 
+                                        "abdose", "abfreq_001", "abunits", "abduration", "Class", "aware"))
+
+# export database
+write.csv(kim_anon, 'kim_anon.csv')
+
+#### 2. IMPORT DATA NANORO #### 
+patient_nan <- read.csv("C:/Users/bingelbeen/OneDrive - ITG/AMR BIT/CABU JPIAMR/cabu_intervention/db/patientsurvey/visit_EXIT_registration _Nanoro  2022_.csv")
+str(patient_nan) # every recorded antibiotic is there in a column
+# show variable names
+colnames(patient_nan)
+
+# wide to long generic antibiotic names
+ab_nan <- patient_nan %>%
+  select("KEY", starts_with("achatMedic.")) %>%
+  select(-contains(".bg"))
+ab_nan_long <- gather(ab_nan, key = "abgeneric", value = "value", -KEY)
+ab_nan_long <- ab_nan_long %>% filter(value!=0) %>% 
+  select(-value) %>%
+  mutate(abgeneric = gsub("achatMedic.", "", abgeneric)) %>%
+  filter(abgeneric!="autreAntibio")
+
+# clean the 'other' antibiotics manually entered
+table(patient_nan$achatMedic.bgautreAntibio.autreNomGeneralAntibio)
+patient_nan$achatMedic.bgautreAntibio.autreNomGeneralAntibio <- tolower(patient_nan$achatMedic.bgautreAntibio.autreNomGeneralAntibio)
+patient_nan$achatMedic.bgautreAntibio.nomSpecialitAutrAntibio <- tolower(patient_nan$achatMedic.bgautreAntibio.nomSpecialitAutrAntibio)
+patient_nan$abgeneric[patient_nan$achatMedic.bgautreAntibio.autreNomGeneralAntibio=="co-trimoxazole"] <- "sulfamethoxazole/trimethoprim"
+patient_nan$abgeneric[patient_nan$achatMedic.bgautreAntibio.autreNomGeneralAntibio=="peniciline" & patient_nan$achatMedic.bgautreAntibio.presentationAutrAntibio==1] <- "phenoxymethylpenicillin"
+patient_nan$abgeneric[patient_nan$achatMedic.bgautreAntibio.autreNomGeneralAntibio=="pénicilline" & patient_nan$achatMedic.bgautreAntibio.presentationAutrAntibio==1] <- "phenoxymethylpenicillin"
+patient_nan$abgeneric[patient_nan$achatMedic.bgautreAntibio.nomSpecialitAutrAntibio=="co-trimoxazole"] <- "sulfamethoxazole/trimethoprim"
+patient_nan$abgeneric[patient_nan$achatMedic.bgautreAntibio.nomSpecialitAutrAntibio=="penicilline" & patient_nan$achatMedic.bgautreAntibio.presentationAutrAntibio==1] <- "phenoxymethylpenicillin"
+patient_nan$abgeneric[patient_nan$achatMedic.bgautreAntibio.nomSpecialitAutrAntibio=="penicillin" & patient_nan$achatMedic.bgautreAntibio.presentationAutrAntibio==1] <- "phenoxymethylpenicillin"
+patient_nan$abgeneric[patient_nan$achatMedic.bgautreAntibio.nomSpecialitAutrAntibio=="trimethoprim"] <- "sulfamethoxazole/trimethoprim"
+patient_nan$abgeneric[patient_nan$achatMedic.bgautreAntibio.autreNomGeneralAntibio=="tetra oxyd"] <- "oxytetracycline"
+# check those entered for which we haven't assigned an antibiotic name yet
+table(patient_nan$achatMedic.bgautreAntibio.autreNomGeneralAntibio[is.na(patient_nan$abgeneric)]) # no antibiotics
+table(patient_nan$achatMedic.bgautreAntibio.nomSpecialitAutrAntibio[is.na(patient_nan$abgeneric)]) # no antibiotics
+table(patient_nan$abgeneric)
+# merge these with the antibiotic database
+ab_nan_others <- patient_nan %>% filter(!is.na(abgeneric)) %>% select("KEY", "abgeneric")
+ab_nan_long <- rbind(ab_nan_long, ab_nan_others)
+
+# merge antibiotic database with antibiotic/aware classification 
+# rename a few generic names to make sure they can match the AWaRe classification
+ab_nan_long$abgeneric[ab_nan_long$abgeneric=="ciprofloxacine"] <- "ciprofloxacin"
+ab_nan_long$abgeneric[ab_nan_long$abgeneric=="clavulanicAcid"] <- "amoxicillin/clavulanic acid"
+ab_nan_long$abgeneric[ab_nan_long$abgeneric=="procaineBenzylpenicillin"] <- "benzylpenicillin"
+# merge to the aware list
+ab_nan <- merge(ab_nan_long, aware, by.x = "abgeneric", by.y = "Antibiotic", all.x = T)
+# check those which haven't merged
+table(ab_nan$abgeneric[is.na(ab_nan$Category)]) # none anymore
+
+# clean and simplify patient data - CHECK STILL. MOST WERE NOT REFORMATTED
+# dates to date format
+# visit.q1_date_entretient 
+patient_nan$visit.q1_date_entretient <- gsub("déc\\.", "dec", patient_nan$visit.q1_date_entretient)
+patient_nan$visit.q1_date_entretient <- gsub("févr\\.", "feb", patient_nan$visit.q1_date_entretient)
+patient_nan$visit.q1_date_entretient <- gsub("janv\\.", "jan", patient_nan$visit.q1_date_entretient)
+patient_nan$visit.q1_date_entretient <- gsub("mars", "mar", patient_nan$visit.q1_date_entretient)
+patient_nan$visit.q1_date_entretient <- gsub("nov\\.", "nov", patient_nan$visit.q1_date_entretient)
+# some dates in 2016 -> all entered on 5 Jan 2024
+patient_nan$SubmissionDate[grepl("2016", patient_nan$visit.q1_date_entretient)==T]
+patient_nan$visit.q1_date_entretient[grepl("2016", patient_nan$visit.q1_date_entretient)==T] <- gsub("2016", "2024", patient_nan$visit.q1_date_entretient[grepl("2016", patient_nan$visit.q1_date_entretient)==T])
+
+# convert to date variable
+patient_nan$surveydate <- as.Date(patient_nan$visit.q1_date_entretient, format = "%b %d, %Y")
+table(patient_nan$surveydate, useNA = "always")
+# check distribuition
+hist(patient_nan$surveydate, 
+     main = "Histogram of Survey Dates", 
+     xlab = "Survey Date",
+     col = "lightblue",
+     breaks = "months"  # Optionally specify breaks by months
+)
+
+# reformat dob
+patient_nan$village.q4_dob <- as.Date(patient_nan$village.q4_dob, "%Y-%m-%d")
+table(patient_nan_long$village.q4_dob, useNA = "always")
+# clean age
+patient_nan$ageyears <- patient_nan$village.age_ans
+patient_nan$ageyears[is.na(patient_nan$village.age_ans)] <- round(patient_nan$village.age_mois[is.na(patient_nan$village.age_ans)]/12,0)
+patient_nan$ageyears[is.na(patient_nan$ageyears)] <- 2023 - year(patient_nan$village.q4_dob[is.na(patient_nan$ageyears)]) # none with missing age have a dob entered
+
+# this still doesn't work. issue with date formats in french
+table(patient_nan$village.q4_dob[is.na(patient_nan$ageyears)], useNA = "always")
+table(patient_nan$ageyears, useNA = "always")
+# var agegroups
+patient_nan$agegroup[patient_nan$ageyears<5] <- "0-4 yr"
+patient_nan$agegroup[patient_nan$ageyears>4.999] <- "5-17 yr"
+patient_nan$agegroup[patient_nan$ageyears>17.999] <- "18-64 yr"
+patient_nan$agegroup[patient_nan$ageyears>64.999] <- "65+ yr"
+table(patient_nan$agegroup, useNA = "always")
+
+# recode some more patient variables
+table(patient_nan$village.q6_sexe, useNA = "always") 
+table(patient_nan$village.q7_niveauEducationPatient, useNA = "always")
+patient_nan <- patient_nan %>%
+  mutate(sex = ifelse(village.q6_sexe == "F", "female", 
+                                  ifelse(village.q6_sexe == "M", "male", village.q6_sexe))) %>%
+  mutate(educationlevel = case_when(
+    village.q7_niveauEducationPatient == 1 ~ "none",
+    village.q7_niveauEducationPatient == 2 ~ "primary",
+    village.q7_niveauEducationPatient == 3 ~ "secondary",
+    village.q7_niveauEducationPatient == 4 ~ "higher",
+    TRUE ~ as.character(village.q7_niveauEducationPatient)  # Default case
+  )) %>%
+  mutate(educationlevel = factor(educationlevel, levels = c("none", "primary", "secondary", "higher"))) %>%
+  mutate(providertype = case_when(
+    dispensateur.q9_typeDispensateur == 1 ~ "healthcentre_publique",
+    dispensateur.q9_typeDispensateur == 2 ~ "privatepharmacy", # these are dépôts, potentially to analyse separately but smallest groups of providers
+    dispensateur.q9_typeDispensateur == 3 ~ "privatepharmacy", # these are official community pharmacies
+    dispensateur.q9_typeDispensateur == 4 ~ "informalvendor",
+    TRUE ~ as.character(dispensateur.q9_typeDispensateur)  # Default case
+  )) %>%
+  mutate(illness = case_when(
+    consultation.q18_suite_maladie == 1 ~ "yes_acute_illness",
+    consultation.q18_suite_maladie == 2 ~ "yes_chronic", # these are dépôts, potentially to analyse separately but smallest groups of providers
+    consultation.q18_suite_maladie == 3 ~ "no_animalhealth", # these are official community pharmacies
+    consultation.q18_suite_maladie == 4 ~ "no_noillness",
+    TRUE ~ as.character(consultation.q18_suite_maladie)  # Default case
+  ))
+
+table(patient_nan$sex)
+table(patient_nan$educationlevel)
+table(patient_nan$providertype)
+table(patient_nan$illness)
+
+# missing age or sex
+missingagesex <- patient_nan %>%
+  filter(is.na(sex) | is.na(ageyears)) %>%
+  select(SubmissionDate, fieldWorkerId, fieldWorkerId_new, visit.q1_date_entretient, visit.q2_heure_debut_entretien, village.cluster, village.q1_initiale, 
+         village.q2_age_dob, village.q2_age_mois_an, village.age_mois, village.age_ans, village.q4_dob, village.q5_lieuResidence, village.q6_sexe)
+write.csv(missingagesex, "missingagesex_nan.csv")
+
+# number of each dispensor
+table(patient_nan$dispensateur.q10_num_vendeur_informel)
+patient_nan$providernr <- as.numeric(gsub("\\D", "", patient_nan$dispensateur.q10_num_vendeur_informel))
+table(patient_nan$providernr, patient_nan$providertype, useNA = "always")
+
+# show the clusters where no provider number has been entered - need to check those and assign a number
+table(patient_nan$village.cluster[is.na(patient_nan$providernr) & patient_nan$providertype=="informalvendor"], useNA = "always")
+# first check which clusters have just one medicine vendor
+table(patient_nan$village.cluster[(is.na(patient_nan$providernr) | patient_nan$providernr<1) & patient_nan$providertype=="informalvendor"], useNA = "always")
+# vector with these villages
+clusters_with_just_one_vendor <- c("BAL", "BOU", "KOK", "LAL", "NAN", "NAZ", "PEL", "RAK", "SEG", "SOA", "SOU", "SOW")
+# replace in those with a value 1
+patient_nan$providernr[is.na(patient_nan$providernr) & patient_nan$providertype=="informalvendor" & patient_nan$village.cluster %in% clusters_with_just_one_vendor] <- 1
+# replace the provider number 0 with a provider number 1, if the village has just one vendor
+patient_nan$providernr[patient_nan$providernr==0 & patient_nan$village.cluster %in% clusters_with_just_one_vendor] <- 1
+
+# village cluster - both are the same (the open field was in case there would be one that the interviewer doesn't find on the list)
+table(patient_nan$village.cluster, useNA = "always")
+table(patient_nan$village.code_village, useNA = "always")
+
+# assign whether intervention or control cluster
+patient_nan <- patient_nan %>%
+  mutate(intervention = ifelse(village.cluster %in% c("BAL", "BOL", "KOU", "PEL", "DAC", "KOK", "NAN", "NAZ", "POE", "SOU", "ZIM"), 
+                               "intervention", "control"))
+table(patient_nan$village.cluster, patient_nan$intervention, useNA = "always")
+
+# assign the round of the survey (baseline vs. post intervention) based on survey date
+patient_nan$round[patient_nan$surveydate<"2023-10-01"] <- "baseline"
+patient_nan$round[patient_nan$surveydate>"2023-09-30"] <- "post"
+table(patient_nan$round, useNA = "always")
+
+# remove all antimalarial variables, to simplify the data
+patient_nan_noab <- patient_nan %>% select("KEY", "providertype", "providernr", "round", "intervention", "ageyears", "agegroup", "sex", "educationlevel", "illness", c(names(patient_nan_long)[27:44], "surveydate", "village.cluster"))
+
+# link patient and antibiotic data
+nan <- merge(patient_nan_noab, ab_nan, by = "KEY", all = T) 
+
+# create a new variable watch that also is "Watch" if a fixed-dose combination contains at least one watch AB
+nan$aware <- nan$Category
+table(nan$aware) # no fixed dose combination here
+
+# create a database with one line per patient indicating whether the patient used a Watch AB or not
+watchnan <- nan %>%
+  filter(!is.na(round)) %>%
+  group_by(KEY, intervention, round, village.cluster, providertype, providernr, agegroup, sex, illness) %>%
+  summarise(watch = if_else(any(aware == "Watch"), 1, 0),
+            antibiotic = if_else(any(!is.na(abgeneric)), 1, 0))
+watchnan$watch[is.na(watchnan$watch)] <- 0
+watchnan$antibiotic[is.na(watchnan$antibiotic)] <- 0
+table(watchnan$watch, useNA = "always")
+table(watchnan$antibiotic, useNA = "always")
+
+# replace chr vars by factors variables
+watchnan$intervention <- as.factor(watchnan$intervention)
+watchnan$choices_cluster <- as.factor(watchnan$choices_cluster)
+watchnan$agegroup <- as.factor(watchnan$agegroup)
+watchnan$providertype <- as.factor(watchnan$providertype)
+
+# consider healthcare providers as sampling unit, regardless of cluster villages (since all healthcare provieders in those villages included)
+watchnan$cluster <- paste(watchnan$village.cluster, "-", watchnan$providertype, "-", watchnan$providernr) # 128 providers
+watchnan$cluster <- as.factor(watchnan$cluster)
+
+# anonymize the provider clusters to prevent identification of providers
+watchnan$clusterID <- sapply(watchnan$cluster, function(clusterID) {
+  return(substring(digest(as.character(clusterID), algo = "crc32"), 1, 5))})
+
+# anonymize the provider clusters to prevent identification of providers and remove identifying info in the overall db
+nan$cluster <- paste(nan$village.cluster, "-", nan$providertype, "-", nan$providernr) # 61 providers
+nan$clusterID <- sapply(nan$cluster, function(clusterID) {
+  return(substring(digest(as.character(clusterID), algo = "crc32"), 1, 5))})
+
+# export database
+write.csv(nan, 'nan.csv')
+# still need to remove variables to make an anonymized db of nan
+
+# append Kimpese and Nanoro (main) data
+watchnan$site <- "Nanoro"
+watchkim$site <- "Kimpese"
+watch <- rbind(watchnan, watchkim)
+
+#### 3. DESCRIPTION PARTICIPANTS ####
 # n surveys
-table(patient_kim$round, useNA = "always")
+table(watchkim$round, useNA = "always")
+table(watchnan$round, useNA = "always")
 
 # provider
-table(patient_kim$providertype[patient_kim$round=="baseline"], patient_kim$intervention[patient_kim$round=="baseline"], useNA = "always")
-table(patient_kim$providertype[patient_kim$round=="post"], patient_kim$intervention[patient_kim$round=="post"], useNA = "always")
+table(watchkim$providertype[watchkim$round=="baseline"], watchkim$intervention[watchkim$round=="baseline"], useNA = "always")
+table(watchkim$providertype[watchkim$round=="post"], watchkim$intervention[watchkim$round=="post"], useNA = "always")
 
-# cluster
-table(patient_kim_bl$choices_cluster, useNA = "always")
-# public vs private
-table(patient_kim$providertype, useNA = "always")
-patient_kim$publicprivate <- "private"
-patient_kim$publicprivate[patient_kim$providertype=="healthcentre_publique"] <- "public"
+# clusters and number of clusters
+table(watchkim$cluster, useNA = "always")
+nclusterskim <- watchkim %>% group_by(cluster) %>% summarise(n())
+count(nclusterskim)
+
+table(watchnan$cluster, useNA = "always")
+nclustersnan <- watchnan %>% group_by(cluster) %>% summarise(n())
+count(nclustersnan)
 
 #### 2. PREVALENCE WATCH ANTIBIOTIC USE ####
 # 2.1 two-stage cluster sampling-corrected prevalence by group
