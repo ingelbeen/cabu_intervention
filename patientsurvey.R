@@ -424,19 +424,30 @@ table(ab_nan$abgeneric[is.na(ab_nan$Category)]) # none anymore
 
 # clean and simplify patient data - CHECK STILL. MOST WERE NOT REFORMATTED
 # dates to date format
-# visit.q1_date_entretient 
-patient_nan$visit.q1_date_entretient <- gsub("déc\\.", "dec", patient_nan$visit.q1_date_entretient)
-patient_nan$visit.q1_date_entretient <- gsub("févr\\.", "feb", patient_nan$visit.q1_date_entretient)
-patient_nan$visit.q1_date_entretient <- gsub("janv\\.", "jan", patient_nan$visit.q1_date_entretient)
-patient_nan$visit.q1_date_entretient <- gsub("mars", "mar", patient_nan$visit.q1_date_entretient)
-patient_nan$visit.q1_date_entretient <- gsub("nov\\.", "nov", patient_nan$visit.q1_date_entretient)
+# survey date based on visit.q1_date_entretient 
+patient_nan$visit.q1_date_entretient <- gsub("déc\\.", "Dec", patient_nan$visit.q1_date_entretient)
+patient_nan$visit.q1_date_entretient <- gsub("févr\\.", "Feb", patient_nan$visit.q1_date_entretient)
+patient_nan$visit.q1_date_entretient <- gsub("janv\\.", "Jan", patient_nan$visit.q1_date_entretient)
+patient_nan$visit.q1_date_entretient <- gsub("mars", "Mar", patient_nan$visit.q1_date_entretient)
+patient_nan$visit.q1_date_entretient <- gsub("nov\\.", "Nov", patient_nan$visit.q1_date_entretient)
 # some dates in 2016 -> all entered on 5 Jan 2024
 patient_nan$SubmissionDate[grepl("2016", patient_nan$visit.q1_date_entretient)==T]
 patient_nan$visit.q1_date_entretient[grepl("2016", patient_nan$visit.q1_date_entretient)==T] <- gsub("2016", "2024", patient_nan$visit.q1_date_entretient[grepl("2016", patient_nan$visit.q1_date_entretient)==T])
-
 # convert to date variable
 patient_nan$surveydate <- as.Date(patient_nan$visit.q1_date_entretient, format = "%b %d, %Y")
+patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 1, 2023"] <- "2023-03-01"
+patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 2, 2023"] <- "2023-03-02"
+patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 3, 2023"] <- "2023-03-03"
+patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 4, 2023"] <- "2023-03-04"
+patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 5, 2023"] <- "2023-03-05"
+patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 6, 2023"] <- "2023-03-06"
+patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 7, 2023"] <- "2023-03-07"
+patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 8, 2023"] <- "2023-03-08"
+patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 9, 2023"] <- "2023-03-09"
+patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 13, 2023"] <- "2023-03-13"
 table(patient_nan$surveydate, useNA = "always")
+patient_nan$visit.q1_date_entretient[is.na(patient_nan$surveydate)]
+
 # check distribuition
 hist(patient_nan$surveydate, 
      main = "Histogram of Survey Dates", 
@@ -446,16 +457,46 @@ hist(patient_nan$surveydate,
 )
 
 # reformat dob
-patient_nan$village.q4_dob <- as.Date(patient_nan$village.q4_dob, "%Y-%m-%d")
-table(patient_nan_long$village.q4_dob, useNA = "always")
+table(patient_nan$village.q4_dob, useNA = "always")
+patient_nan$village.q4_dob <- gsub("déc\\.", "dec", patient_nan$village.q4_dob)
+patient_nan$village.q4_dob <- gsub("févr\\.", "feb", patient_nan$village.q4_dob)
+patient_nan$village.q4_dob <- gsub("janv\\.", "jan", patient_nan$village.q4_dob)
+patient_nan$village.q4_dob <- gsub("mars", "mar", patient_nan$village.q4_dob)
+patient_nan$village.q4_dob <- gsub("nov\\.", "nov", patient_nan$village.q4_dob)
+patient_nan$village.q4_dob <- gsub("juin", "jun", patient_nan$village.q4_dob)
+patient_nan$village.q4_dob <- gsub("mai", "may", patient_nan$village.q4_dob)
+patient_nan$village.q4_dob <- gsub("août", "aug", patient_nan$village.q4_dob)
+patient_nan$village.q4_dob <- gsub("avr\\.", "apr", patient_nan$village.q4_dob)
+patient_nan$village.q4_dob <- gsub("juil\\.", "jul", patient_nan$village.q4_dob)
+patient_nan$village.q4_dob <- gsub("sept\\.", "sep", patient_nan$village.q4_dob)
+patient_nan$village.q4_dob <- gsub("oct\\.", "oct", patient_nan$village.q4_dob)
+patient_nan$dob <- as.Date(patient_nan$village.q4_dob, "%Y-%m-%d", format = "%b %d, %Y")
+table(patient_nan$village.q4_dob[is.na(patient_nan$dob)&patient_nan$village.q4_dob!=""]) # oddly, a few dates couldn't be converted this way, so I checked them and formatted manually
+patient_nan$dob[patient_nan$village.q4_dob=="mar 1, 2023"] <- "2023-03-01"
+patient_nan$dob[patient_nan$village.q4_dob=="mar 14, 2023"] <- "2023-03-14"
+patient_nan$dob[patient_nan$village.q4_dob=="mar 17, 2023"] <- "2023-03-17"
+patient_nan$dob[patient_nan$village.q4_dob=="mar 22, 2020"] <- "2020-03-22"
+patient_nan$dob[patient_nan$village.q4_dob=="mar 27, 2023"] <- "2023-03-27"
+patient_nan$dob[patient_nan$village.q4_dob=="may 18, 2022"] <- "2022-05-18"
+patient_nan$dob[patient_nan$village.q4_dob=="may 20, 2022"] <- "2022-05-20"
+patient_nan$dob[patient_nan$village.q4_dob=="may 21, 2022"] <- "2022-05-21"
+patient_nan$dob[patient_nan$village.q4_dob=="may 28, 2022"] <- "2022-05-28"
+patient_nan$dob[patient_nan$village.q4_dob=="may 29, 2023"] <- "2023-05-29"
+patient_nan$dob[patient_nan$village.q4_dob=="may 31, 2021"] <- "2021-05-31"
+patient_nan$dob[patient_nan$village.q4_dob=="may 4, 2022"] <- "2022-05-04"
+patient_nan$dob[patient_nan$village.q4_dob=="may 9, 2023"] <- "2023-05-09"
+patient_nan$dob[patient_nan$village.q4_dob=="oct 20, 2023"] <- "2023-10-20"
+patient_nan$dob[patient_nan$village.q4_dob=="oct 9, 2020"] <- "2023-10-09"
+table(patient_nan$dob, useNA = "always")
+
 # clean age
 patient_nan$ageyears <- patient_nan$village.age_ans
 patient_nan$ageyears[is.na(patient_nan$village.age_ans)] <- round(patient_nan$village.age_mois[is.na(patient_nan$village.age_ans)]/12,0)
-patient_nan$ageyears[is.na(patient_nan$ageyears)] <- 2023 - year(patient_nan$village.q4_dob[is.na(patient_nan$ageyears)]) # none with missing age have a dob entered
+patient_nan$ageyears[is.na(patient_nan$ageyears)] <- round((as.numeric(patient_nan$surveydate[is.na(patient_nan$ageyears)]) - as.numeric(patient_nan$dob[is.na(patient_nan$ageyears)]))/365.25,0)
 
-# this still doesn't work. issue with date formats in french
 table(patient_nan$village.q4_dob[is.na(patient_nan$ageyears)], useNA = "always")
 table(patient_nan$ageyears, useNA = "always")
+
 # var agegroups
 patient_nan$agegroup[patient_nan$ageyears<5] <- "0-4 yr"
 patient_nan$agegroup[patient_nan$ageyears>4.999] <- "5-17 yr"
@@ -496,13 +537,6 @@ table(patient_nan$sex)
 table(patient_nan$educationlevel)
 table(patient_nan$providertype)
 table(patient_nan$illness)
-
-# missing age or sex
-missingagesex <- patient_nan %>%
-  filter(is.na(sex) | is.na(ageyears)) %>%
-  select(SubmissionDate, fieldWorkerId, fieldWorkerId_new, visit.q1_date_entretient, visit.q2_heure_debut_entretien, village.cluster, village.q1_initiale, 
-         village.q2_age_dob, village.q2_age_mois_an, village.age_mois, village.age_ans, village.q4_dob, village.q5_lieuResidence, village.q6_sexe)
-write.csv(missingagesex, "missingagesex_nan.csv")
 
 # number of each dispensor
 table(patient_nan$dispensateur.q10_num_vendeur_informel)
