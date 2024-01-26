@@ -377,16 +377,18 @@ kim_anon <- kim %>% select(c("round", "intervention", "clusterID", "providertype
 write.csv(kim_anon, 'kim_anon.csv')
 
 #### 2. IMPORT DATA NANORO #### 
-patient_nan <- read.csv("C:/Users/bingelbeen/OneDrive - ITG/AMR BIT/CABU JPIAMR/cabu_intervention/db/patientsurvey/visit_EXIT_registration _Nanoro  2022_.csv")
+patient_nan_old <- read.csv("C:/Users/bingelbeen/OneDrive - ITG/AMR BIT/CABU JPIAMR/cabu_intervention/db/patientsurvey/visit_EXIT_registration _Nanoro  2022_.csv")
+# patient_nan <- read_excel("db/patientsurvey/visit_EXIT_registration_Nanoro_25_01_2024__py.xlsx")
+patient_nan <- read.csv("db/patientsurvey/visit_EXIT_registration__Nanoro__2022__results_240126.csv")
 str(patient_nan) # every recorded antibiotic is there in a column
 # show variable names
 colnames(patient_nan)
 
 # wide to long generic antibiotic names
 ab_nan <- patient_nan %>%
-  select("KEY", starts_with("achatMedic.")) %>%
+  select("meta.instanceID", starts_with("achatMedic.")) %>%
   select(-contains(".bg"))
-ab_nan_long <- gather(ab_nan, key = "abgeneric", value = "value", -KEY)
+ab_nan_long <- gather(ab_nan, key = "abgeneric", value = "value", -meta.instanceID)
 ab_nan_long <- ab_nan_long %>% filter(value!=0) %>% 
   select(-value) %>%
   mutate(abgeneric = gsub("achatMedic.", "", abgeneric)) %>%
@@ -409,7 +411,7 @@ table(patient_nan$achatMedic.bgautreAntibio.autreNomGeneralAntibio[is.na(patient
 table(patient_nan$achatMedic.bgautreAntibio.nomSpecialitAutrAntibio[is.na(patient_nan$abgeneric)]) # no antibiotics
 table(patient_nan$abgeneric)
 # merge these with the antibiotic database
-ab_nan_others <- patient_nan %>% filter(!is.na(abgeneric)) %>% select("KEY", "abgeneric")
+ab_nan_others <- patient_nan %>% filter(!is.na(abgeneric)) %>% select("meta.instanceID", "abgeneric")
 ab_nan_long <- rbind(ab_nan_long, ab_nan_others)
 
 # merge antibiotic database with antibiotic/aware classification 
@@ -425,28 +427,30 @@ table(ab_nan$abgeneric[is.na(ab_nan$Category)]) # none anymore
 # clean and simplify patient data - CHECK STILL. MOST WERE NOT REFORMATTED
 # dates to date format
 # survey date based on visit.q1_date_entretient 
-patient_nan$visit.q1_date_entretient <- gsub("déc\\.", "Dec", patient_nan$visit.q1_date_entretient)
-patient_nan$visit.q1_date_entretient <- gsub("févr\\.", "Feb", patient_nan$visit.q1_date_entretient)
-patient_nan$visit.q1_date_entretient <- gsub("janv\\.", "Jan", patient_nan$visit.q1_date_entretient)
-patient_nan$visit.q1_date_entretient <- gsub("mars", "Mar", patient_nan$visit.q1_date_entretient)
-patient_nan$visit.q1_date_entretient <- gsub("nov\\.", "Nov", patient_nan$visit.q1_date_entretient)
-# some dates in 2016 -> all entered on 5 Jan 2024
-patient_nan$SubmissionDate[grepl("2016", patient_nan$visit.q1_date_entretient)==T]
-patient_nan$visit.q1_date_entretient[grepl("2016", patient_nan$visit.q1_date_entretient)==T] <- gsub("2016", "2024", patient_nan$visit.q1_date_entretient[grepl("2016", patient_nan$visit.q1_date_entretient)==T])
-# convert to date variable
-patient_nan$surveydate <- as.Date(patient_nan$visit.q1_date_entretient, format = "%b %d, %Y")
-patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 1, 2023"] <- "2023-03-01"
-patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 2, 2023"] <- "2023-03-02"
-patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 3, 2023"] <- "2023-03-03"
-patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 4, 2023"] <- "2023-03-04"
-patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 5, 2023"] <- "2023-03-05"
-patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 6, 2023"] <- "2023-03-06"
-patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 7, 2023"] <- "2023-03-07"
-patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 8, 2023"] <- "2023-03-08"
-patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 9, 2023"] <- "2023-03-09"
-patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 13, 2023"] <- "2023-03-13"
+patient_nan$surveydate <- as.Date(patient_nan$visit.q1_date_entretient)
+table(patient_nan$visit.q1_date_entretient)
 table(patient_nan$surveydate, useNA = "always")
 patient_nan$visit.q1_date_entretient[is.na(patient_nan$surveydate)]
+# a previous export required a bit more reformatting:
+# patient_nan$visit.q1_date_entretient <- gsub("déc\\.", "Dec", patient_nan$visit.q1_date_entretient)
+# patient_nan$visit.q1_date_entretient <- gsub("févr\\.", "Feb", patient_nan$visit.q1_date_entretient)
+# patient_nan$visit.q1_date_entretient <- gsub("janv\\.", "Jan", patient_nan$visit.q1_date_entretient)
+# patient_nan$visit.q1_date_entretient <- gsub("mars", "Mar", patient_nan$visit.q1_date_entretient)
+# patient_nan$visit.q1_date_entretient <- gsub("nov\\.", "Nov", patient_nan$visit.q1_date_entretient)
+# # some dates in 2016 -> all entered on 5 Jan 2024
+# patient_nan$SubmissionDate[grepl("2016", patient_nan$visit.q1_date_entretient)==T]
+# patient_nan$visit.q1_date_entretient[grepl("2016", patient_nan$visit.q1_date_entretient)==T] <- gsub("2016", "2024", patient_nan$visit.q1_date_entretient[grepl("2016", patient_nan$visit.q1_date_entretient)==T])
+# # convert to date variable
+# patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 1, 2023"] <- "2023-03-01"
+# patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 2, 2023"] <- "2023-03-02"
+# patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 3, 2023"] <- "2023-03-03"
+# patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 4, 2023"] <- "2023-03-04"
+# patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 5, 2023"] <- "2023-03-05"
+# patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 6, 2023"] <- "2023-03-06"
+# patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 7, 2023"] <- "2023-03-07"
+# patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 8, 2023"] <- "2023-03-08"
+# patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 9, 2023"] <- "2023-03-09"
+# patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 13, 2023"] <- "2023-03-13"
 
 # check distribuition
 hist(patient_nan$surveydate, 
@@ -458,41 +462,44 @@ hist(patient_nan$surveydate,
 
 # reformat dob
 table(patient_nan$village.q4_dob, useNA = "always")
-patient_nan$village.q4_dob <- gsub("déc\\.", "dec", patient_nan$village.q4_dob)
-patient_nan$village.q4_dob <- gsub("févr\\.", "feb", patient_nan$village.q4_dob)
-patient_nan$village.q4_dob <- gsub("janv\\.", "jan", patient_nan$village.q4_dob)
-patient_nan$village.q4_dob <- gsub("mars", "mar", patient_nan$village.q4_dob)
-patient_nan$village.q4_dob <- gsub("nov\\.", "nov", patient_nan$village.q4_dob)
-patient_nan$village.q4_dob <- gsub("juin", "jun", patient_nan$village.q4_dob)
-patient_nan$village.q4_dob <- gsub("mai", "may", patient_nan$village.q4_dob)
-patient_nan$village.q4_dob <- gsub("août", "aug", patient_nan$village.q4_dob)
-patient_nan$village.q4_dob <- gsub("avr\\.", "apr", patient_nan$village.q4_dob)
-patient_nan$village.q4_dob <- gsub("juil\\.", "jul", patient_nan$village.q4_dob)
-patient_nan$village.q4_dob <- gsub("sept\\.", "sep", patient_nan$village.q4_dob)
-patient_nan$village.q4_dob <- gsub("oct\\.", "oct", patient_nan$village.q4_dob)
-patient_nan$dob <- as.Date(patient_nan$village.q4_dob, "%Y-%m-%d", format = "%b %d, %Y")
-table(patient_nan$village.q4_dob[is.na(patient_nan$dob)&patient_nan$village.q4_dob!=""]) # oddly, a few dates couldn't be converted this way, so I checked them and formatted manually
-patient_nan$dob[patient_nan$village.q4_dob=="mar 1, 2023"] <- "2023-03-01"
-patient_nan$dob[patient_nan$village.q4_dob=="mar 14, 2023"] <- "2023-03-14"
-patient_nan$dob[patient_nan$village.q4_dob=="mar 17, 2023"] <- "2023-03-17"
-patient_nan$dob[patient_nan$village.q4_dob=="mar 22, 2020"] <- "2020-03-22"
-patient_nan$dob[patient_nan$village.q4_dob=="mar 27, 2023"] <- "2023-03-27"
-patient_nan$dob[patient_nan$village.q4_dob=="may 18, 2022"] <- "2022-05-18"
-patient_nan$dob[patient_nan$village.q4_dob=="may 20, 2022"] <- "2022-05-20"
-patient_nan$dob[patient_nan$village.q4_dob=="may 21, 2022"] <- "2022-05-21"
-patient_nan$dob[patient_nan$village.q4_dob=="may 28, 2022"] <- "2022-05-28"
-patient_nan$dob[patient_nan$village.q4_dob=="may 29, 2023"] <- "2023-05-29"
-patient_nan$dob[patient_nan$village.q4_dob=="may 31, 2021"] <- "2021-05-31"
-patient_nan$dob[patient_nan$village.q4_dob=="may 4, 2022"] <- "2022-05-04"
-patient_nan$dob[patient_nan$village.q4_dob=="may 9, 2023"] <- "2023-05-09"
-patient_nan$dob[patient_nan$village.q4_dob=="oct 20, 2023"] <- "2023-10-20"
-patient_nan$dob[patient_nan$village.q4_dob=="oct 9, 2020"] <- "2023-10-09"
+patient_nan$dob <- as.Date(patient_nan$village.q4_dob)
 table(patient_nan$dob, useNA = "always")
+# previous export required more reformatting
+# patient_nan$dob <- as.Date(patient_nan$village.q4_dob, "%Y-%m-%d", format = "%b %d, %Y")
+# patient_nan$village.q4_dob <- gsub("déc\\.", "dec", patient_nan$village.q4_dob)
+# patient_nan$village.q4_dob <- gsub("févr\\.", "feb", patient_nan$village.q4_dob)
+# patient_nan$village.q4_dob <- gsub("janv\\.", "jan", patient_nan$village.q4_dob)
+# patient_nan$village.q4_dob <- gsub("mars", "mar", patient_nan$village.q4_dob)
+# patient_nan$village.q4_dob <- gsub("nov\\.", "nov", patient_nan$village.q4_dob)
+# patient_nan$village.q4_dob <- gsub("juin", "jun", patient_nan$village.q4_dob)
+# patient_nan$village.q4_dob <- gsub("mai", "may", patient_nan$village.q4_dob)
+# patient_nan$village.q4_dob <- gsub("août", "aug", patient_nan$village.q4_dob)
+# patient_nan$village.q4_dob <- gsub("avr\\.", "apr", patient_nan$village.q4_dob)
+# patient_nan$village.q4_dob <- gsub("juil\\.", "jul", patient_nan$village.q4_dob)
+# patient_nan$village.q4_dob <- gsub("sept\\.", "sep", patient_nan$village.q4_dob)
+# patient_nan$village.q4_dob <- gsub("oct\\.", "oct", patient_nan$village.q4_dob)
+# table(patient_nan$village.q4_dob[is.na(patient_nan$dob)&patient_nan$village.q4_dob!=""]) # oddly, a few dates couldn't be converted this way, so I checked them and formatted manually
+# patient_nan$dob[patient_nan$village.q4_dob=="mar 1, 2023"] <- "2023-03-01"
+# patient_nan$dob[patient_nan$village.q4_dob=="mar 14, 2023"] <- "2023-03-14"
+# patient_nan$dob[patient_nan$village.q4_dob=="mar 17, 2023"] <- "2023-03-17"
+# patient_nan$dob[patient_nan$village.q4_dob=="mar 22, 2020"] <- "2020-03-22"
+# patient_nan$dob[patient_nan$village.q4_dob=="mar 27, 2023"] <- "2023-03-27"
+# patient_nan$dob[patient_nan$village.q4_dob=="may 18, 2022"] <- "2022-05-18"
+# patient_nan$dob[patient_nan$village.q4_dob=="may 20, 2022"] <- "2022-05-20"
+# patient_nan$dob[patient_nan$village.q4_dob=="may 21, 2022"] <- "2022-05-21"
+# patient_nan$dob[patient_nan$village.q4_dob=="may 28, 2022"] <- "2022-05-28"
+# patient_nan$dob[patient_nan$village.q4_dob=="may 29, 2023"] <- "2023-05-29"
+# patient_nan$dob[patient_nan$village.q4_dob=="may 31, 2021"] <- "2021-05-31"
+# patient_nan$dob[patient_nan$village.q4_dob=="may 4, 2022"] <- "2022-05-04"
+# patient_nan$dob[patient_nan$village.q4_dob=="may 9, 2023"] <- "2023-05-09"
+# patient_nan$dob[patient_nan$village.q4_dob=="oct 20, 2023"] <- "2023-10-20"
+# patient_nan$dob[patient_nan$village.q4_dob=="oct 9, 2020"] <- "2023-10-09"
 
 # clean age
 patient_nan$ageyears <- patient_nan$village.age_ans
 patient_nan$ageyears[is.na(patient_nan$village.age_ans)] <- round(patient_nan$village.age_mois[is.na(patient_nan$village.age_ans)]/12,0)
 patient_nan$ageyears[is.na(patient_nan$ageyears)] <- round((as.numeric(patient_nan$surveydate[is.na(patient_nan$ageyears)]) - as.numeric(patient_nan$dob[is.na(patient_nan$ageyears)]))/365.25,0)
+patient_nan$ageyears[patient_nan$village.age_mois==1997] <- 27 # one year entered as the age in months
 
 table(patient_nan$village.q4_dob[is.na(patient_nan$ageyears)], useNA = "always")
 table(patient_nan$ageyears, useNA = "always")
@@ -505,8 +512,6 @@ patient_nan$agegroup[patient_nan$ageyears>64.999] <- "65+ yr"
 table(patient_nan$agegroup, useNA = "always")
 
 # recode some more patient variables
-table(patient_nan$village.q6_sexe, useNA = "always") 
-table(patient_nan$village.q7_niveauEducationPatient, useNA = "always")
 patient_nan <- patient_nan %>%
   mutate(sex = ifelse(village.q6_sexe == "F", "female", 
                                   ifelse(village.q6_sexe == "M", "male", village.q6_sexe))) %>%
@@ -533,12 +538,12 @@ patient_nan <- patient_nan %>%
     TRUE ~ as.character(consultation.q18_suite_maladie)  # Default case
   ))
 
-table(patient_nan$sex)
-table(patient_nan$educationlevel)
-table(patient_nan$providertype)
-table(patient_nan$illness)
+table(patient_nan$sex, useNA = "always")
+table(patient_nan$educationlevel, useNA = "always")
+table(patient_nan$providertype, useNA = "always")
+table(patient_nan$illness, useNA = "always")
 
-# number of each dispensor
+# number of each dispensor (only applicable to informal medicine vendors. of other provider types there are max one per cluster)
 table(patient_nan$dispensateur.q10_num_vendeur_informel)
 patient_nan$providernr <- as.numeric(gsub("\\D", "", patient_nan$dispensateur.q10_num_vendeur_informel))
 table(patient_nan$providernr, patient_nan$providertype, useNA = "always")
@@ -568,41 +573,12 @@ table(patient_nan$village.cluster, patient_nan$intervention, useNA = "always")
 patient_nan$round[patient_nan$surveydate<"2023-10-01"] <- "baseline"
 patient_nan$round[patient_nan$surveydate>"2023-09-30"] <- "post"
 table(patient_nan$round, useNA = "always")
-
+colnames(patient_nan)
 # remove all antimalarial variables, to simplify the data
-patient_nan_noab <- patient_nan %>% select("KEY", "providertype", "providernr", "round", "intervention", "ageyears", "agegroup", "sex", "educationlevel", "illness", c(names(patient_nan_long)[27:44], "surveydate", "village.cluster"))
+patient_nan_noab <- patient_nan %>% select("meta.instanceID", "providertype", "providernr", "round", "intervention", "ageyears", "agegroup", "sex", "educationlevel", "illness", c(names(patient_nan)[26:45], "surveydate", "village.cluster"))
 
 # link patient and antibiotic data
-nan <- merge(patient_nan_noab, ab_nan, by = "KEY", all = T) 
-
-# create a new variable watch that also is "Watch" if a fixed-dose combination contains at least one watch AB
-nan$aware <- nan$Category
-table(nan$aware) # no fixed dose combination here
-
-# create a database with one line per patient indicating whether the patient used a Watch AB or not
-watchnan <- nan %>%
-  filter(!is.na(round)) %>%
-  group_by(KEY, intervention, round, village.cluster, providertype, providernr, agegroup, sex, illness) %>%
-  summarise(watch = if_else(any(aware == "Watch"), 1, 0),
-            antibiotic = if_else(any(!is.na(abgeneric)), 1, 0))
-watchnan$watch[is.na(watchnan$watch)] <- 0
-watchnan$antibiotic[is.na(watchnan$antibiotic)] <- 0
-table(watchnan$watch, useNA = "always")
-table(watchnan$antibiotic, useNA = "always")
-
-# replace chr vars by factors variables
-watchnan$intervention <- as.factor(watchnan$intervention)
-watchnan$choices_cluster <- as.factor(watchnan$choices_cluster)
-watchnan$agegroup <- as.factor(watchnan$agegroup)
-watchnan$providertype <- as.factor(watchnan$providertype)
-
-# consider healthcare providers as sampling unit, regardless of cluster villages (since all healthcare provieders in those villages included)
-watchnan$cluster <- paste(watchnan$village.cluster, "-", watchnan$providertype, "-", watchnan$providernr) # 128 providers
-watchnan$cluster <- as.factor(watchnan$cluster)
-
-# anonymize the provider clusters to prevent identification of providers
-watchnan$clusterID <- sapply(watchnan$cluster, function(clusterID) {
-  return(substring(digest(as.character(clusterID), algo = "crc32"), 1, 5))})
+nan <- merge(patient_nan_noab, ab_nan, by = "meta.instanceID", all = T) 
 
 # anonymize the provider clusters to prevent identification of providers and remove identifying info in the overall db
 nan$cluster <- paste(nan$village.cluster, "-", nan$providertype, "-", nan$providernr) # 61 providers
@@ -613,15 +589,55 @@ nan$clusterID <- sapply(nan$cluster, function(clusterID) {
 write.csv(nan, 'nan.csv')
 # still need to remove variables to make an anonymized db of nan
 
+# create a new variable watch that also is "Watch" if a fixed-dose combination contains at least one watch AB
+nan$aware <- nan$Category
+table(nan$aware) # no fixed dose combination here
+
+# create a database with one line per patient indicating whether the patient used a Watch AB or not
+watchnan <- nan %>%
+  filter(!is.na(round)) %>%
+  group_by(meta.instanceID, intervention, round, village.cluster, providertype, providernr, agegroup, sex, illness) %>%
+  summarise(watch = if_else(any(aware == "Watch"), 1, 0),
+            antibiotic = if_else(any(!is.na(abgeneric)), 1, 0))
+watchnan$watch[is.na(watchnan$watch)] <- 0
+watchnan$antibiotic[is.na(watchnan$antibiotic)] <- 0
+table(watchnan$watch, useNA = "always")
+table(watchnan$antibiotic, useNA = "always")
+
+# consider healthcare providers as sampling unit, regardless of cluster villages (since all healthcare provieders in those villages included)
+watchnan$cluster <- paste(watchnan$village.cluster, "-", watchnan$providertype, "-", watchnan$providernr) # 128 providers
+watchnan$cluster <- as.factor(watchnan$cluster)
+
+# anonymize the provider clusters to prevent identification of providers
+watchnan$clusterID <- sapply(watchnan$cluster, function(clusterID) {
+  return(substring(digest(as.character(clusterID), algo = "crc32"), 1, 5))})
+
 # append Kimpese and Nanoro (main) data
+watchnan <- as.data.frame(watchnan)
+watchkim <- as.data.frame(watchkim)
+
+# add name of site
 watchnan$site <- "Nanoro"
 watchkim$site <- "Kimpese"
+
+# remove variables that still could allow identification of dispensors
+watchnan <- watchnan %>% select(-village.cluster, -providernr, -cluster, -meta.instanceID)
+watchkim <- watchkim %>% select(-choices_cluster, -providernr, -cluster, -`_uuid`)
+
+# merge both
 watch <- rbind(watchnan, watchkim)
+
+# export
+write.csv(watch, "watch.csv")
+
+# reformat some chr vars, replace by factor variables
+watch$intervention <- as.factor(watch$intervention)
+watch$agegroup <- as.factor(watch$agegroup)
+watch$providertype <- as.factor(watch$providertype)
 
 #### 3. DESCRIPTION PARTICIPANTS ####
 # n surveys
-table(watchkim$round, useNA = "always")
-table(watchnan$round, useNA = "always")
+table(watch$round, watch$site, useNA = "always")
 
 # provider
 table(watchkim$providertype[watchkim$round=="baseline"], watchkim$intervention[watchkim$round=="baseline"], useNA = "always")
