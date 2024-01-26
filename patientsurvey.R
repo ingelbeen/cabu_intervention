@@ -4,6 +4,7 @@
 #####################################################
 
 # install/load packages
+install.packages("Rtools")
 pacman::p_load(readxl, lubridate, haven, dplyr, tidyr, digest, ggplot2, survey, srvyr, gtsummary)
 
 #### 1. IMPORT DATA KIMPESE #### 
@@ -639,28 +640,31 @@ watch$providertype <- as.factor(watch$providertype)
 # n surveys
 table(watch$round, watch$site, useNA = "always")
 
-# provider
+# providers Kimpese
 table(watchkim$providertype[watchkim$round=="baseline"], watchkim$intervention[watchkim$round=="baseline"], useNA = "always")
 table(watchkim$providertype[watchkim$round=="post"], watchkim$intervention[watchkim$round=="post"], useNA = "always")
 
+# providers Nanoro
+table(watchnan$providertype[watchnan$round=="baseline"], watchnan$intervention[watchnan$round=="baseline"], useNA = "always")
+table(watchnan$providertype[watchnan$round=="post"], watchnan$intervention[watchnan$round=="post"], useNA = "always")
+
 # clusters and number of clusters
-table(watchkim$cluster, useNA = "always")
-nclusterskim <- watchkim %>% group_by(cluster) %>% summarise(n())
+table(watchkim$clusterID, useNA = "always")
+nclusterskim <- watchkim %>% group_by(clusterID) %>% summarise(n())
 count(nclusterskim)
 
-table(watchnan$cluster, useNA = "always")
-nclustersnan <- watchnan %>% group_by(cluster) %>% summarise(n())
+table(watchnan$clusterID, useNA = "always")
+nclustersnan <- watchnan %>% group_by(clusterID) %>% summarise(n())
 count(nclustersnan)
 
 #### 2. PREVALENCE WATCH ANTIBIOTIC USE ####
 # 2.1 two-stage cluster sampling-corrected prevalence by group
 # ANY PROVIDER
 # specify cluster design (assuming here we selected health provider, not by strata, for now)
-surveydesign <- svydesign(id = ~clusterID, data = watchkim, nest = TRUE)
+surveydesign <- svydesign(id = ~clusterID, data = watch, strata = ~site, nest = TRUE)
 
 # currently no weighing is done for the frequency of healthcare seeking by provider/type of provider so that a provider that is visited more frequently also contributes more to the overall prevalence, 
 # a weighing variable is ideally still added once it can be estimated from the household survey data
-
 svyciprop(~watch, surveydesign, na.rm = T)
 
 # prevalence watch at baseline
