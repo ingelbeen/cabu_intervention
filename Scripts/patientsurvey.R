@@ -451,7 +451,6 @@ hist(patient_nan$surveydate,
      main = "Histogram of Survey Dates", 
      xlab = "Survey Date",
      col = "lightblue",
-     col = patient_nan$intervention,  # Color by the 'intervention' variable
      freq = TRUE,       
      breaks = "weeks",
      las = 2)             # Rotate x-axis labels by 90 degrees
@@ -815,22 +814,59 @@ antibioticclusterprop_wide <- antibioticclusterprop_wide %>% select(c("providert
 # save table
 write.table(antibioticclusterprop_wide, "antibioticclusterprop_wide.txt")
 
-#### 5. PREVALENCE RATIO WATCH ANTIBIOTIC USE INTERVENTION VS CONTROL ####
+#### 5. PREVALENCE RATIO WATCH/ANY ANTIBIOTIC USE INTERVENTION VS CONTROL ####
 # model structure: ABU ~ Time + Intervention + Time*Intervention + confounders?? - this is not adjusted for the cluster design of samples yet (clusterID)
-# log binomial regression
-binregressionmodel <- glm(watch ~ round + intervention + round*intervention + providertype + site, # + choices_cluster + agegroup + clusterID
-             family = binomial(link = "log"), # logit for logistic
-             data = watch)
+# 5.1 WATCH: log binomial regression, putting clusters in the model
+binregressionmodel <- glm(watch ~ round + intervention + round*intervention + providertype + site + clusterID, #+ agegroup?
+             family = binomial(link = "logit"), # log for log binomial, but doesn't converge, so the below are now odds ratios
+             data = watch_acute)
 summary(binregressionmodel)
-
 # get the model coefficients
 coef <- coef(binregressionmodel)
 coeci <- confint(binregressionmodel)
 rr <- exp(coef)
-rr
+rr # see that it's an OR actually since it's log regression eventually
 ci_rr <- exp(coeci)
 ci_rr
 
+# 5.2 WATCH: log binomial regression using the survey package
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute, nest = TRUE) # same as above
+design_effect <- deff(surveydesign) # Error in sqrt(design_effect) : non-numeric argument to mathematical function 
+# no sampling weights here yet, so unclear what to do
+svy_binregressionmodel <- svyglm(watch ~ intervention*round + providertype + site + agegroup + sex, 
+                                 design = surveydesign, family = binomial(link = "log"))
+summary(svy_binregressionmodel)
+# get the model coefficients
+coef <- coef(svy_binregressionmodel) # gives exactly the same result as above -> no design effect taken into account yet?
+coeci <- confint(svy_binregressionmodel)
+rr <- round(exp(coef),2)
+rr # see that it's an OR actually since it's log regression eventually
+ci_rr <- round(exp(coeci),2)
+ci_rr
+mvatable_watch <- as.data.frame(cbind(rr, ci_rr))
+mvatable_watch <- mvatable_watch %>% mutate(ci = paste(`2.5 %`, `97.5 %`, sep = "-")) %>%
+  select(rr, ci)
+write.table(mvatable_watch, "mvatable_watch.txt")
+# adjusted_se <- sqrt(diag(vcov(svy_binregressionmodel))) * sqrt(design_effect)
+
+# 5.3 ANY ANTIBIOTIC: log binomial regression using the survey package
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute, nest = TRUE) # same as above
+design_effect <- deff(surveydesign) # Error in sqrt(design_effect) : non-numeric argument to mathematical function 
+# no sampling weights here yet, so unclear what to do
+svy_binregressionmodel <- svyglm(antibiotic ~ intervention*round + providertype + site + agegroup + sex, 
+                                 design = surveydesign, family = binomial(link = "logit")) # logit because with log (log binomial, error message asking to provide starting coefficients)
+summary(svy_binregressionmodel)
+# get the model coefficients
+coef <- coef(svy_binregressionmodel) # gives exactly the same result as above -> no design effect taken into account yet?
+coeci <- confint(svy_binregressionmodel)
+rr <- round(exp(coef),2)
+rr # see that it's an OR actually since it's log regression eventually
+ci_rr <- round(exp(coeci),2)
+ci_rr
+mvatable_anyantibiotic <- as.data.frame(cbind(rr, ci_rr))
+mvatable_anyantibiotic <- mvatable_anyantibiotic %>% mutate(ci = paste(`2.5 %`, `97.5 %`, sep = "-")) %>%
+  select(rr, ci)
+write.table(mvatable_anyantibiotic, "mvatable_anyantibiotic.txt")
 
 
 #### SUPPLEMENT. DAILY ANALYSIS DURING DATA COLLECTION analyse journalier ####
