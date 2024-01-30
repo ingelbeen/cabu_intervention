@@ -4,7 +4,6 @@
 #####################################################
 
 # install/load packages
-install.packages("Rtools")
 pacman::p_load(readxl, lubridate, haven, dplyr, tidyr, digest, ggplot2, survey, srvyr, gtsummary)
 
 #### 1. IMPORT DATA KIMPESE #### 
@@ -12,7 +11,7 @@ pacman::p_load(readxl, lubridate, haven, dplyr, tidyr, digest, ggplot2, survey, 
 # import patient data
 patient_kim_bl <- read_excel("db/patientsurvey/Questionnaire_patient_CABU-RDC_-_all_versions_-_English_-_2024-01-16-12-52-23.xlsx", 
                        sheet = "Questionnaire patient CABU-RDC")
-patient_kim_post <- read_excel("db/patientsurvey/R2_Questionnaire_patient_CABU-RDC_-_all_versions_-_English_-_2024-01-16-13-05-06.xlsx")
+patient_kim_post <- read_excel("db/patientsurvey/R2_Questionnaire_patient_CABU-RDC_-_all_versions_-_English_-_2024-01-29-08-52-53.xlsx")
 # remove variables that the baseline survey data have but the post data don't
 patient_kim_bl <- patient_kim_bl %>% select(-interviewdate, -diag_spec)
 # make sure both have the same column names
@@ -81,7 +80,7 @@ patient_kim$providertype[patient_kim$providertype=="informalstore"] <- "privatep
 ab_kim_bl <- read_excel("db/patientsurvey/Questionnaire_patient_CABU-RDC_-_all_versions_-_English_-_2024-01-16-12-52-23.xlsx", 
                             sheet = "ab")
 ab_kim_bl <- ab_kim_bl %>% select(-abfreq) # bl questionnaire had twice the frequency of intake recorded
-ab_kim_post <- read_excel("db/patientsurvey/R2_Questionnaire_patient_CABU-RDC_-_all_versions_-_English_-_2024-01-16-13-05-06.xlsx",
+ab_kim_post <- read_excel("db/patientsurvey/R2_Questionnaire_patient_CABU-RDC_-_all_versions_-_English_-_2024-01-29-08-52-53.xlsx",
                           sheet = "ab")
 # append both: add a variable saying which round, then append
 ab_kim <- rbind(ab_kim_bl, ab_kim_post)
@@ -110,6 +109,7 @@ ab_kim$abgeneric[grepl("trio kit", ab_kim$abgeneric_other)==T] <- "azithromycin/
 ab_kim$abgeneric[grepl("cipro", ab_kim$abgeneric_other)==T&grepl("tinidaz", ab_kim$abgeneric_other)==T] <- "ciprofloxacin/tinidazole"
 ab_kim$abgeneric[grepl("sulfamet", ab_kim$abgeneric_other)==T&grepl("trimet", ab_kim$abgeneric_other)==T] <- "sulfamethoxazole/trimethoprim"
 ab_kim$abgeneric[grepl("sulphamet", ab_kim$abgeneric_other)==T&grepl("trimet", ab_kim$abgeneric_other)==T] <- "sulfamethoxazole/trimethoprim"
+ab_kim$abgeneric[ab_kim$abgeneric_other=="cotrin"] <- "sulfamethoxazole/trimethoprim"
 ab_kim$abgeneric[grepl("co-trimox", ab_kim$abgeneric_other)==T] <- "sulfamethoxazole/trimethoprim"
 ab_kim$abgeneric[grepl("co trimox", ab_kim$abgeneric_other)==T] <- "sulfamethoxazole/trimethoprim"
 ab_kim$abgeneric[grepl("cotrim", ab_kim$abgeneric_other)==T] <- "sulfamethoxazole/trimethoprim"
@@ -340,15 +340,8 @@ watchkim$antibiotic[is.na(watchkim$antibiotic)] <- 0
 table(watchkim$watch, useNA = "always")
 table(watchkim$antibiotic, useNA = "always")
 
-# replace chr vars by factors variables
-watchkim$intervention <- as.factor(watchkim$intervention)
-watchkim$choices_cluster <- as.factor(watchkim$choices_cluster)
-watchkim$agegroup <- as.factor(watchkim$agegroup)
-watchkim$providertype <- as.factor(watchkim$providertype)
-
 # consider healthcare providers as sampling unit, regardless of cluster villages (since all healthcare provieders in those villages included)
 watchkim$cluster <- paste(watchkim$choices_cluster, "-", watchkim$providertype, "-", watchkim$providernr) # 128 providers
-watchkim$cluster <- as.factor(watchkim$cluster)
 
 # anonymize the provider clusters to prevent identification of providers
 watchkim$clusterID <- sapply(watchkim$cluster, function(clusterID) {
@@ -458,8 +451,10 @@ hist(patient_nan$surveydate,
      main = "Histogram of Survey Dates", 
      xlab = "Survey Date",
      col = "lightblue",
-     breaks = "months"  # Optionally specify breaks by months
-)
+     col = patient_nan$intervention,  # Color by the 'intervention' variable
+     freq = TRUE,       
+     breaks = "weeks",
+     las = 2)             # Rotate x-axis labels by 90 degrees
 
 # reformat dob
 table(patient_nan$village.q4_dob, useNA = "always")
@@ -633,8 +628,9 @@ write.csv(watch, "watch.csv")
 
 # reformat some chr vars, replace by factor variables
 watch$intervention <- as.factor(watch$intervention)
-watch$agegroup <- as.factor(watch$agegroup)
-watch$providertype <- as.factor(watch$providertype)
+watch$agegroup <- factor(watch$agegroup, levels = c("0-4 yr", "5-17 yr", "18-64 yr", "65+ yr"))
+watch$illness <- factor(watch$illness, levels = c("yes_acute_illness", "yes_chronic", "no_noillness", "no_animalhealth"))
+watch$providertype <- factor(watch$providertype, levels = c("healthcentre_publique", "privateclinic", "privatepharmacy", "informalvendor"))
 
 #### 3. DESCRIPTION PARTICIPANTS ####
 # n surveys
@@ -657,121 +653,174 @@ table(watchnan$clusterID, useNA = "always")
 nclustersnan <- watchnan %>% group_by(clusterID) %>% summarise(n())
 count(nclustersnan)
 
-#### 2. PREVALENCE WATCH ANTIBIOTIC USE ####
-# 2.1 two-stage cluster sampling-corrected prevalence by group
-# ANY PROVIDER
-# specify cluster design (assuming here we selected health provider, not by strata, for now)
-surveydesign <- svydesign(id = ~clusterID, data = watch, strata = ~site, nest = TRUE)
+# table 1 patient characteristics
+# illness
+illnessdistr <- watch %>%
+  group_by(site, intervention) %>%
+  count(illness) %>%
+  mutate(percent = scales::percent(n / sum(n))) %>%
+  pivot_wider(
+    names_from = c(site, intervention),
+    values_from = c(n, percent),
+    names_sep = "_")
+illnessdistr$percent_Kimpese_control  <- round(as.numeric(gsub("%", "", illnessdistr$percent_Kimpese_control )),1)
+illnessdistr$percent_Kimpese_intervention  <- round(as.numeric(gsub("%", "", illnessdistr$percent_Kimpese_intervention )),1)
+illnessdistr$percent_Nanoro_control  <- round(as.numeric(gsub("%", "", illnessdistr$percent_Nanoro_control )),1)
+illnessdistr$percent_Nanoro_intervention  <- round(as.numeric(gsub("%", "", illnessdistr$percent_Nanoro_intervention )),1)
+illnessdistr
+# agegr - excluding non acute illness cases
+agegroupdistr <- watch %>%
+  filter(illness=="yes_acute_illness") %>%
+  group_by(site, intervention) %>%
+  count(agegroup) %>%
+  mutate(percent = scales::percent(n / sum(n))) %>%
+  pivot_wider(
+    names_from = c(site, intervention),
+    values_from = c(n, percent),
+    names_sep = "_")
+agegroupdistr$percent_Kimpese_control  <- round(as.numeric(gsub("%", "", agegroupdistr$percent_Kimpese_control )),1)
+agegroupdistr$percent_Kimpese_intervention  <- round(as.numeric(gsub("%", "", agegroupdistr$percent_Kimpese_intervention )),1)
+agegroupdistr$percent_Nanoro_control  <- round(as.numeric(gsub("%", "", agegroupdistr$percent_Nanoro_control )),1)
+agegroupdistr$percent_Nanoro_intervention  <- round(as.numeric(gsub("%", "", agegroupdistr$percent_Nanoro_intervention )),1)
+agegroupdistr
+# sex - excluding non acute illness cases
+sexdistr <- watch %>%
+  filter(illness=="yes_acute_illness") %>%
+  group_by(site, intervention) %>%
+  count(sex) %>%
+  mutate(percent = scales::percent(n / sum(n))) %>%
+  pivot_wider(
+    names_from = c(site, intervention),
+    values_from = c(n, percent),
+    names_sep = "_")
+sexdistr$percent_Kimpese_control  <- round(as.numeric(gsub("%", "", sexdistr$percent_Kimpese_control )),1)
+sexdistr$percent_Kimpese_intervention  <- round(as.numeric(gsub("%", "", sexdistr$percent_Kimpese_intervention )),1)
+sexdistr$percent_Nanoro_control  <- round(as.numeric(gsub("%", "", sexdistr$percent_Nanoro_control )),1)
+sexdistr$percent_Nanoro_intervention  <- round(as.numeric(gsub("%", "", sexdistr$percent_Nanoro_intervention )),1)
+sexdistr
+# append all these tables
+colnames(illnessdistr)[1] <- "characteristic"
+colnames(agegroupdistr)[1] <- "characteristic"
+colnames(sexdistr)[1] <- "characteristic"
+table1 <- rbind(illnessdistr)
+table1 <- bind_rows(illnessdistr, agegroupdistr, sexdistr)
+# reorder columns
+table1 <- table1 %>% select("characteristic", "n_Kimpese_control","percent_Kimpese_control","n_Kimpese_intervention",
+                            "percent_Kimpese_intervention", "n_Nanoro_control", "percent_Nanoro_control", "n_Nanoro_intervention",                     
+                            "percent_Nanoro_intervention" )
+# save table
+write.table(table1, "table1.txt")
 
-# currently no weighing is done for the frequency of healthcare seeking by provider/type of provider so that a provider that is visited more frequently also contributes more to the overall prevalence, 
-# a weighing variable is ideally still added once it can be estimated from the household survey data
-svyciprop(~watch, surveydesign, na.rm = T)
+#### 4. PREVALENCE WATCH ANTIBIOTIC USE ####
+# 4.1 crude prevalence by provider type, by intervention/control group, by site, and pre- vs. post intervention
+# exclude animal use, chronic patients, no illness, to keep just acute illness
+watch_acute <- watch %>% filter(illness=="yes_acute_illness")
+# watch
+summary_watchcounts <- watch_acute %>%
+  group_by(site, intervention, providertype, round) %>%
+  summarise(
+    count_watch_1 = sum(watch == 1),
+    total_count = n(),
+    percentage_watch_1 = round((count_watch_1 / total_count) * 100, 1)
+  ) %>%
+  mutate(combined_counts = paste(count_watch_1, total_count, sep = "/")) %>%
+  select(site, intervention, providertype, round, combined_counts, percentage_watch_1) %>%
+  pivot_wider(
+    names_from = c(site, intervention),
+    values_from = c(combined_counts, percentage_watch_1),
+    names_sep = "_"
+  )
+summary_watchcounts <- summary_watchcounts %>% select(c("providertype","round","combined_counts_Kimpese_control","percentage_watch_1_Kimpese_control",
+                                "combined_counts_Kimpese_intervention", "percentage_watch_1_Kimpese_intervention", "combined_counts_Nanoro_control",
+                                "percentage_watch_1_Nanoro_control", "combined_counts_Nanoro_intervention","percentage_watch_1_Nanoro_intervention" )) 
+write.table(summary_watchcounts, "summary_watchcounts.txt")
 
-# prevalence watch at baseline
-watchkim_bl <- watchkim %>% filter(round == "baseline")
-surveydesign_bl <- svydesign(id = ~clusterID, data = watchkim_bl, nest = TRUE)
+# any antibiotic
+summary_antibioticcounts <- watch_acute %>%
+  group_by(site, intervention, providertype, round) %>%
+  summarise(
+    count_antibiotic = sum(antibiotic == 1),
+    total_count = n(),
+    percentage_antibiotic = round((count_antibiotic / total_count) * 100, 1)
+  ) %>%
+  mutate(combined_counts = paste(count_antibiotic, total_count, sep = "/")) %>%
+  select(site, intervention, providertype, round, combined_counts, percentage_antibiotic) %>%
+  pivot_wider(
+    names_from = c(site, intervention),
+    values_from = c(combined_counts, percentage_antibiotic),
+    names_sep = "_"
+  )
+summary_antibioticcounts <- summary_antibioticcounts %>% select(c("providertype","round","combined_counts_Kimpese_control","percentage_antibiotic_Kimpese_control",
+                                                        "combined_counts_Kimpese_intervention", "percentage_antibiotic_Kimpese_intervention", "combined_counts_Nanoro_control",
+                                                        "percentage_antibiotic_Nanoro_control", "combined_counts_Nanoro_intervention","percentage_antibiotic_Nanoro_intervention" )) 
+write.table(summary_antibioticcounts, "summary_antibioticcounts.txt")
 
-svyciprop(~watch, surveydesign_bl, na.rm = T)
+# 4.2 two-stage cluster sampling-corrected prevalence by group
+# WATCH
+# by site, by time (baseline/post) and by providertype
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute, nest = TRUE)
+# proportion estimates
+watchclusterprop <- svyby(~watch, by = ~providertype + site + intervention + round, design = surveydesign, FUN = svymean, na.rm = TRUE)
+# add 95% CI as percentages
+watchclusterprop$lower_ci <- round((watchclusterprop$watch - 1.96*watchclusterprop$se)*100,1)
+watchclusterprop$upper_ci <- round((watchclusterprop$watch + 1.96*watchclusterprop$se)*100,1)
+# proportion to percentage
+watchclusterprop$pct <- round(watchclusterprop$watch*100,1)
+# reshape to a wide table similar to the one with counts above
+watchclusterprop_wide <- watchclusterprop %>% 
+  mutate(ci = paste(lower_ci, upper_ci, sep = "-")) %>%
+  select(site, intervention, providertype, round, pct, ci) %>%
+  pivot_wider(
+    names_from = c(site, intervention),
+    values_from = c(pct, ci),
+    names_sep = "_"
+  )
+# reorder rows
+watchclusterprop_wide <- watchclusterprop_wide[order(watchclusterprop_wide$providertype), ]
+# reorder columns
+watchclusterprop_wide <- watchclusterprop_wide %>% select(c("providertype","round","pct_Kimpese_control","ci_Kimpese_control",
+                                                            "pct_Kimpese_intervention", "ci_Kimpese_intervention", "pct_Nanoro_control",
+                                                            "ci_Nanoro_control", "pct_Nanoro_intervention", "ci_Nanoro_intervention" )) 
+# save table
+write.table(watchclusterprop_wide, "watchclusterprop_wide.txt")
 
-# prevalence watch post intervention in intervention
-watchkim_intervention <- watchkim %>% filter(round == "post" & intervention == "intervention")
-surveydesign_intervention <- svydesign(id = ~clusterID, data = watchkim_intervention, nest = TRUE)
-svyciprop(~watch, surveydesign_intervention, na.rm = T)
+# other method but seems to give approx. the same estimates
+# ci_estimates <- svyby(~watch, by = ~providertype + site + intervention, design = surveydesign, FUN = svyciprop, ci = 0.95, method = "likelihood")
 
-# prevalence watch post intervention in control
-watchkim_control <- watchkim %>% filter(round == "post" & intervention == "control")
-surveydesign_control <- svydesign(id = ~clusterID, data = watchkim_control, nest = TRUE)
-svyciprop(~watch, surveydesign_control, na.rm = T)
+# ANY ANTIBIOTIC
+# by site, by time (baseline/post) and by providertype - the same as above
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute, nest = TRUE)
+# proportion estimates
+antibioticclusterprop <- svyby(~antibiotic, by = ~providertype + site + intervention + round, design = surveydesign, FUN = svymean, na.rm = TRUE)
+# add 95% CI as percentages
+antibioticclusterprop$lower_ci <- round((antibioticclusterprop$antibiotic - 1.96*antibioticclusterprop$se)*100,1)
+antibioticclusterprop$upper_ci <- round((antibioticclusterprop$antibiotic + 1.96*antibioticclusterprop$se)*100,1)
+# proportion to percentage
+antibioticclusterprop$pct <- round(antibioticclusterprop$antibiotic*100,1)
+# reshape to a wide table similar to the one with counts above
+antibioticclusterprop_wide <- antibioticclusterprop %>% 
+  mutate(ci = paste(lower_ci, upper_ci, sep = "-")) %>%
+  select(site, intervention, providertype, round, pct, ci) %>%
+  pivot_wider(
+    names_from = c(site, intervention),
+    values_from = c(pct, ci),
+    names_sep = "_"
+  )
+# reorder rows
+antibioticclusterprop_wide <- antibioticclusterprop_wide[order(antibioticclusterprop_wide$providertype), ]
+# reorder columns
+antibioticclusterprop_wide <- antibioticclusterprop_wide %>% select(c("providertype","round","pct_Kimpese_control","ci_Kimpese_control",
+                                                            "pct_Kimpese_intervention", "ci_Kimpese_intervention", "pct_Nanoro_control",
+                                                            "ci_Nanoro_control", "pct_Nanoro_intervention", "ci_Nanoro_intervention" )) 
+# save table
+write.table(antibioticclusterprop_wide, "antibioticclusterprop_wide.txt")
 
-# HEALTH CENTRE
-# prevalence watch at baseline
-watchkim_bl_hc <- watchkim %>% filter(round == "baseline" & providertype=="healthcentre_publique")
-surveydesign_bl <- svydesign(id = ~clusterID, data = watchkim_bl_hc, nest = TRUE)
-svyciprop(~watch, surveydesign_bl, na.rm = T)
-
-# prevalence watch post intervention in intervention
-watchkim_intervention_hc <- watchkim %>% filter(round == "post" & intervention == "intervention" & providertype=="healthcentre_publique")
-surveydesign_intervention <- svydesign(id = ~clusterID, data = watchkim_intervention_hc, nest = TRUE)
-svyciprop(~watch, surveydesign_intervention, na.rm = T)
-
-# prevalence watch post intervention in control
-watchkim_control_hc <- watchkim %>% filter(round == "post" & intervention == "control" & providertype=="healthcentre_publique")
-surveydesign_control <- svydesign(id = ~clusterID, data = watchkim_control_hc, nest = TRUE)
-svyciprop(~watch, surveydesign_control, na.rm = T)
-
-
-# PHARMACY
-# prevalence watch at baseline
-watchkim_bl_pharm <- watchkim %>% filter(round == "baseline" & providertype=="privatepharmacy")
-surveydesign_bl <- svydesign(id = ~clusterID, data = watchkim_bl_pharm, nest = TRUE)
-svyciprop(~watch, surveydesign_bl, na.rm = T)
-
-# prevalence watch post intervention in intervention
-watchkim_intervention_pharm <- watchkim %>% filter(round == "post" & intervention == "intervention" & providertype=="privatepharmacy")
-surveydesign_intervention <- svydesign(id = ~clusterID, data = watchkim_intervention_pharm, nest = TRUE)
-svyciprop(~watch, surveydesign_intervention, na.rm = T)
-
-# prevalence watch post intervention in control
-watchkim_control_pharm <- watchkim %>% filter(round == "post" & intervention == "control" & providertype=="privatepharmacy")
-surveydesign_control <- svydesign(id = ~clusterID, data = watchkim_control_pharm, nest = TRUE)
-svyciprop(~watch, surveydesign_control, na.rm = T)
-
-# PRIVATE CLINIC
-# prevalence watch at baseline
-watchkim_bl_clinic <- watchkim %>% filter(round == "baseline" & providertype=="privateclinic")
-surveydesign_bl <- svydesign(id = ~clusterID, data = watchkim_bl_clinic, nest = TRUE)
-svyciprop(~watch, surveydesign_bl, na.rm = T)
-
-# prevalence watch post intervention in intervention
-watchkim_intervention_clinic <- watchkim %>% filter(round == "post" & intervention == "intervention" & providertype=="privateclinic")
-surveydesign_intervention <- svydesign(id = ~clusterID, data = watchkim_intervention_clinic, nest = TRUE)
-svyciprop(~watch, surveydesign_intervention, na.rm = T)
-
-# prevalence watch post intervention in control
-watchkim_control_clinic <- watchkim %>% filter(round == "post" & intervention == "control" & providertype=="privateclinic")
-surveydesign_control <- svydesign(id = ~clusterID, data = watchkim_control_clinic, nest = TRUE)
-svyciprop(~watch, surveydesign_control, na.rm = T)
-
-# 2.2. crude - to double check if corrected estimates make sense and are different
-# crude difference pre and post intervention in control clusters
-watchcount_prepost <- table(watchkim$round[watchkim$intervention=="control"], watchkim$watch[watchkim$intervention=="control"], useNA = "always")
-watchcount_prepost
-watchprev_prepost <- round(prop.table(watchcount_prepost, 1),2)
-watchprev_prepost
-
-# crude difference pre and post intervention in intervention clusters only
-watchcount_prepost <- table(watchkim$round[watchkim$intervention=="intervention"], watchkim$watch[watchkim$intervention=="intervention"], useNA = "always")
-watchcount_prepost
-watchprev_prepost <- round(prop.table(watchcount_prepost, 1),2)
-watchprev_prepost
-
-# specifically in health centres
-watchcount_prepost_healthcentres <- table(watchkim$round[watchkim$intervention=="intervention"&watchkim$providertype=="healthcentre_publique"], watchkim$watch[watchkim$intervention=="intervention"&watchkim$providertype=="healthcentre_publique"], useNA = "always")
-watchcount_prepost_healthcentres
-round(prop.table(watchcount_prepost_healthcentres, 1),2)
-
-# specifically in private pharmacies
-watchcount_prepost_pharmacy <- table(watchkim$round[watchkim$intervention=="intervention"&watchkim$providertype=="privatepharmacy"], watchkim$watch[watchkim$intervention=="intervention"&watchkim$providertype=="privatepharmacy"], useNA = "always")
-watchcount_prepost_pharmacy
-round(prop.table(watchcount_prepost_pharmacy, 1),2)
-
-# specifically in private clinics
-watchcount_prepost_privateclinic <- table(watchkim$round[watchkim$intervention=="intervention"&watchkim$providertype=="privateclinic"], watchkim$watch[watchkim$intervention=="intervention"&watchkim$providertype=="privateclinic"], useNA = "always")
-watchcount_prepost_privateclinic
-round(prop.table(watchcount_prepost_privateclinic, 1),2)
-
-# prevalence in intervention vs control
-watchcount_post <- table(watchkim$intervention[watchkim$round=="post"], watchkim$watch[watchkim$round=="post"], useNA = "always")
-watchcount_post
-watchprev_post <- round(prop.table(watchcount_post, 1),2)
-watchprev_post
-
-#### 3. PREVALENCE RATIO WATCH ANTIBIOTIC USE INTERVENTION VS CONTROL ####
-# Model structure: ABU ~ Time + Intervention + Time*Intervention + confounders??
+#### 5. PREVALENCE RATIO WATCH ANTIBIOTIC USE INTERVENTION VS CONTROL ####
+# model structure: ABU ~ Time + Intervention + Time*Intervention + confounders?? - this is not adjusted for the cluster design of samples yet (clusterID)
 # log binomial regression
-binregressionmodel <- glm(watch ~ round + intervention + round*intervention + providertype, # + choices_cluster + agegroup + providernr
+binregressionmodel <- glm(watch ~ round + intervention + round*intervention + providertype + site, # + choices_cluster + agegroup + clusterID
              family = binomial(link = "log"), # logit for logistic
-             data = watchkim)
+             data = watch)
 summary(binregressionmodel)
 
 # get the model coefficients
