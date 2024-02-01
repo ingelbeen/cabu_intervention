@@ -4,7 +4,7 @@
 #####################################################
 
 # install/load packages
-pacman::p_load(readxl, lubridate, haven, dplyr, tidyr, digest, ggplot2, survey, srvyr, gtsummary)
+pacman::p_load(readxl, lubridate, haven, dplyr, tidyr, digest, ggplot2, survey, srvyr, gtsummary, lme4, broom.mixed)
 
 #### 1. IMPORT DATA KIMPESE #### 
 # 1.1 Kimpese baseline
@@ -830,10 +830,10 @@ ci_rr <- exp(coeci)
 ci_rr
 
 # 5.2 WATCH: log binomial regression using the survey package
-surveydesign <- svydesign(id = ~clusterID, data = watch_acute, nest = TRUE) # same as above
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute, strata = NULL, weights = NULL) # same as above
 design_effect <- deff(surveydesign) # Error in sqrt(design_effect) : non-numeric argument to mathematical function 
 # no sampling weights here yet, so unclear what to do
-svy_binregressionmodel <- svyglm(watch ~ intervention*round + providertype + site + agegroup + sex, 
+svy_binregressionmodel <- svyglm(watch ~ intervention*round + providertype, + site, # + agegroup + sex, 
                                  design = surveydesign, family = binomial(link = "log"))
 summary(svy_binregressionmodel)
 # get the model coefficients
@@ -843,13 +843,45 @@ rr <- round(exp(coef),2)
 rr # see that it's an OR actually since it's log regression eventually
 ci_rr <- round(exp(coeci),2)
 ci_rr
+
 mvatable_watch <- as.data.frame(cbind(rr, ci_rr))
 mvatable_watch <- mvatable_watch %>% mutate(ci = paste(`2.5 %`, `97.5 %`, sep = "-")) %>%
   select(rr, ci)
 write.table(mvatable_watch, "mvatable_watch.txt")
 # adjusted_se <- sqrt(diag(vcov(svy_binregressionmodel))) * sqrt(design_effect)
 
-# 5.3 ANY ANTIBIOTIC: log binomial regression using the survey package
+# 5.3 WATCH: mixed effects model with random intercept
+mixed_model_option1 <- glmer(watch ~ round*intervention + (1| providertype) + (1|site) + (1|clusterID), # I removed site b/c it took too long
+                     family = binomial(link = "logit"),
+                     data = watch_acute)
+summary(mixed_model_option1)
+mixed_model_1_results <- tidy(mixed_model_option1, conf.int = TRUE)
+mixed_model_1_results$or <- exp(mixed_model_1_results$estimate)
+mixed_model_1_results$ci_lower <- exp(mixed_model_1_results$conf.low)
+mixed_model_1_results$ci_upper <- exp(mixed_model_1_results$conf.high)
+mixed_model_1_results
+
+mixed_model_option2 <- glmer(watch ~ round*intervention + site + clusterID + (1|providertype) ,
+                     family = binomial(link = "logit"),
+                     data = watch_acute)
+
+# 5.4 SUBSET ONLY POST MEASUREMENT, COMPARING INTERVENTION TO CONTROL
+watch_acute_post <- watch_acute %>% filter(round=="post")
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute_post, strata = NULL, weights = NULL) # same as above
+design_effect <- deff(surveydesign) # Error in sqrt(design_effect) : non-numeric argument to mathematical function 
+# no sampling weights here yet, so unclear what to do
+svy_binregressionmodel_postonly <- svyglm(watch ~ intervention + providertype + site, # + agegroup + sex, 
+                                 design = surveydesign, family = binomial(link = "log"))
+summary(svy_binregressionmodel_postonly)
+# get the model coefficients
+coef <- coef(svy_binregressionmodel_postonly) # gives exactly the same result as above -> no design effect taken into account yet?
+coeci <- confint(svy_binregressionmodel_postonly)
+rr <- round(exp(coef),2)
+rr # see that it's an OR actually since it's log regression eventually
+ci_rr <- round(exp(coeci),2)
+ci_rr
+
+# 5.5 ANY ANTIBIOTIC: log binomial regression using the survey package
 surveydesign <- svydesign(id = ~clusterID, data = watch_acute, nest = TRUE) # same as above
 design_effect <- deff(surveydesign) # Error in sqrt(design_effect) : non-numeric argument to mathematical function 
 # no sampling weights here yet, so unclear what to do
