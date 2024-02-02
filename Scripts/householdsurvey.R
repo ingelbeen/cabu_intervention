@@ -25,15 +25,20 @@ HHR1 <- merge(HHindividualR1, HHlocationR1, by.x = "_submission__id", by.y = "_i
 hh_nan_bl <- read_excel("db/householdsurvey/WP4_WASH.xls", sheet = "WP4_WASH")
 # several bits/repeats of the questionnaire in redcap format
 # general household structure etc.
-hh_nan_bl_general <- hh_nan_bl %>% filter(is.na(redcap_repeat_instrument) & !is.na(nmbre_personne_menage))
+hh_nan_bl_general <- hh_nan_bl %>% filter(is.na(redcap_repeat_instrument) & !is.na(nmbre_personne_menage)) # 819 households (22*36=792 in protocol)
+# check for duplicates - none found
+duplicates <- hh_nan_bl_general$menage_id[duplicated(hh_nan_bl_general$menage_id)]
+if (length(duplicates) > 0) {
+  cat("Duplicated HH IDs: ", paste(duplicates, collapse = ", "), "\n")
+} else {
+  cat("No duplicates")} 
+
 # repeat with healthcare utilisation
 hh_nan_bl_HCU <- hh_nan_bl %>% filter(redcap_repeat_instrument=="visite_structure_sanitaire")
 
-# number of healthcare visits
-
-# distribution of provider types
+# recode provider types
 table(hh_nan_bl_HCU$q4_type_fournisseur)
-hh_HCU_nan_bl <- hh_HCU_nan_bl %>% mutate(providertype = case_when( # add labels 
+hh_nan_bl_HCU <- hh_nan_bl_HCU %>% mutate(providertype = case_when( # add labels 
   q4_type_fournisseur == 1 ~ "selfmedication",
   q4_type_fournisseur == 2 ~ "informalvendor",
   q4_type_fournisseur == 3 ~ "traditionalhealer",
@@ -42,22 +47,65 @@ hh_HCU_nan_bl <- hh_HCU_nan_bl %>% mutate(providertype = case_when( # add labels
   q4_type_fournisseur == 6 ~ "privatepharmacy", # selfmedication/OTC from the health centre pharmacy, so fits probably best private pharmacy
   q4_type_fournisseur == 7 ~ "healthcentre_publique",
   TRUE ~ as.character(q4_type_fournisseur)))
-  
-# remove visits during which HCU was not recorded or incomplete (variable trois_derniers_mois_complete)
-hh_HCU_nan_bl <- hh_HCU_nan_bl %>% filter(trois_derniers_mois_complete == 2)
 
-str(hh_HCU_nan_bl)
-table(hh_wash_nan_bl$q4_nbr_fois_recherch_medi, hh_wash_nan_bl$trois_derniers_mois_complete, useNA = "always")
-table(hh_wash_nan_bl$trois_derniers_mois_complete, useNA = "always")
+# recode days between the health care visit and the household visit
+table(hh_nan_bl_HCU$q3_date_visite)
+hh_nan_bl_HCU <- hh_nan_bl_HCU %>% mutate(dayssinceHCU = case_when( # add labels 
+  q3_date_visite == 1 ~ "</=7days",
+  q3_date_visite == 2 ~ ">7days & </=30days",
+  q3_date_visite == 3 ~ ">30days & </= 90days",
+  TRUE ~ as.character(q3_date_visite)))
+table(hh_nan_bl_HCU$dayssinceHCU, useNA = "always")
 
 #### 1. ESTIMATE RATE OF HEALTHCARE UTILISATION ####
+# estimated population with HCU recorded
+population_HCUrecorded <- sum(hh_nan_bl_general$nmbre_personne_menage[!is.na(hh_nan_bl_general$q4_nbr_fois_recherch_medi)]) 
+population_HCUrecorded
+# 5992 -> 5992*90 (3 months) = 539280 person-days as denominator OR
+# 5992*30 (one month) = 179760 person-days
+
+# number of healthcare visits in past 3 months
+table(hh_nan_bl_general$q4_nbr_fois_recherch_medi, useNA = "always") # 473 episodes, 329 households report at least one visit
+
+# rate of HCU
+473/539280*1000 # 0.8770954 visits per 1000 inhabitants per day ~ 1.46 per 1000 during CABU1 study in Nanoro and Nazoanga
+
 # distribution of providers
-table(hh_HCU_nan_bl$q4_type_fournisseur)
+table(hh_nan_bl_HCU$q4_type_fournisseur, useNA = "always")
+table(hh_nan_bl_HCU$providertype, useNA = "always")
 
-# estimate rate of visits to providers
+# estimate rate of visits to providers in PAST 3 MONTHS
+HCUrate_3mo <- hh_nan_bl_HCU %>% 
+  filter(!is.na(providertype)) %>%
+  group_by(providertype) %>%
+  summarise(n_3mo = n())
+overall_sum_row_3mo <- HCUrate_3mo %>% # add a row with the total number of visits
+  summarize(n_3mo = sum(n_3mo)) %>%
+  mutate(providertype = "OVERALL")
+HCUrate_3mo <- bind_rows(HCUrate_3mo, overall_sum_row_3mo)
+HCUrate_3mo$persondays_3mo <- population_HCUrecorded * 90  # 3 months
+HCUrate_3mo$rate_per1000inhabitants_3mo <- (HCUrate_3mo$n_3mo*1000)/HCUrate_3mo$persondays_3mo
+HCUrate_3mo 
 
-# check underreporting - hasn't been completed!
-table(hh_HCU_nan_bl$q3_date_visite, useNA = "always")
+# check underreporting 
+table(hh_nan_bl_HCU$dayssinceHCU, useNA = "always") # 177 episodes reported in the last month versus 246 in the two months after
+
+# estimate rate of visits to providers in PAST MONTH
+HCUrate_1mo <- hh_nan_bl_HCU %>% 
+  filter(!is.na(providertype) & dayssinceHCU!=">30days & </= 90days") %>%
+  group_by(providertype) %>%
+  summarise(n_1mo = n())
+overall_sum_row_1mo <- HCUrate_1mo %>% # add a row with the total number of visits
+  summarize(n_1mo = sum(n_1mo)) %>%
+  mutate(providertype = "OVERALL")
+HCUrate_1mo <- bind_rows(HCUrate_1mo, overall_sum_row_1mo)
+HCUrate_1mo$persondays_1mo <- population_HCUrecorded * 30 # now filtered to only include episodes of the past 30 days
+HCUrate_1mo$rate_per1000inhabitants_1mo <- (HCUrate_1mo$n_1mo*1000)/HCUrate_1mo$persondays_1mo
+HCUrate_1mo 
+
+# merge both tables
+HCUrate <- merge(HCUrate_1mo, HCUrate_3mo)
+write.table(HCUrate, "HCUrateNanoro.txt")
 
 #### 2. ESTIMATE PREVALENCE OF WATER-SANITATION-HYGIENE INDICATORS ####
 # create a binary variable for whether a sample was collected and whether ESBL E. coli was identified
