@@ -4,7 +4,8 @@
 # This code is cleaning the data and linking the different datasets
 
 # 22 January 2024
-# Last update: 
+# Author: Esther van Kleef
+# Last update: 10 February 2024
 
 rm(list=ls())
 
