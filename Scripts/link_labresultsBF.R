@@ -10,7 +10,7 @@
 rm(list=ls())
 
 # load package
-pacman::p_load(readxl, writexl, lubridate, zoo, ggplot2, tidyverse, Hmisc, stringr,lme4)
+pacman::p_load(readxl, writexl, lubridate, zoo, ggplot2, tidyverse, Hmisc, stringr,lme4,reshape2)
 
 # SET DIRECTORY
 DirectoryData <- "./Data/BF/Raw"
@@ -916,18 +916,19 @@ cbind(coef,ci)
 hist(wash_r0$nmbre_personne_menage)
 summary(wash_r0$nmbre_personne_menage)
 
+df_r0 = data_eccmid_hh
 # Per household, how many positive
-d = df_r0 %>% group_by(village, intervention_text, household, esbl_pos) %>%
+d = df_r0 %>% group_by(village, intervention_text, menage_id, esbl_pos) %>%
   summarise(n = n())
 
-samples_per_hh = df_r0 %>% group_by(household) %>%
+samples_per_hh = df_r0 %>% group_by(menage_id) %>%
   summarise(n_samples = n())
   
-hh_size = as.data.frame(cbind(df_r0$household,df_r0$nmbre_personne_menage))
-names(hh_size) = c("household","hh_size")
+hh_size = as.data.frame(cbind(df_r0$menage_id,df_r0$nmbre_personne_menage))
+names(hh_size) = c("menage_id","hh_size")
 hh_size = hh_size[!duplicated(hh_size),]
 
-d = left_join(d, hh_size, by="household") %>%
+d = left_join(d, hh_size, by="menage_id") %>%
   left_join(., samples_per_hh) %>% 
   mutate(hh_size = as.numeric(hh_size),
          hh_size_cor = ifelse(hh_size >7, 7, hh_size),
@@ -1009,6 +1010,7 @@ dp = ggplot(d_pos, aes(x=f_pos_cor, group=village, fill=village)) +
   labs(x="%positive within hh", y="Density")
 dp
 
+
 # Save plot
 pdf(file="./Output/Figures/prevalence_per_village.pdf", width=7, height=4)
 print(bp)
@@ -1023,7 +1025,7 @@ print(dpi)
 dev.off()
 
 # Export linked data
-write.csv(df_r0,paste0(DirectoryDataOut,"/bf_r0_lab_hh_linked.csv")) 
+#write.csv(df_r0,paste0(DirectoryDataOut,"/bf_r0_lab_hh_linked.csv")) 
 
 # missing links
 r0_notlink = car_r0[car_r0$found_in_wash==0,] %>% select(menage_id,household,village)
