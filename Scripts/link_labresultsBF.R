@@ -50,6 +50,7 @@ names(villages) = c("village", "village_name","intervention_text","ajouter")
 # names(car_r1[which(!names(car_r1) %in% names(wash_r0))])
 
 # Antibiotic use data
+abx = read.csv("./Data/BF/clean/watch_acute.csv")
 
 
 # Add variables village and household
@@ -144,6 +145,7 @@ table(car_r2$germe_c, car_r2$germe)
 table(car_r2$germe_c, car_r2$esbl_pos)
 table(car_r2$esbl_pos) # These are the ESBL positive patients based on cetriax_or_cefota, 653
 table(car_r2$testesbl) # These are the ESBL positive patients based on esbl_pos, 653
+
 table(car_r2$esbl_pos==1 & car_r2$testesbl==1) # difference of 17. We decided to ignore these differences
 
 #################################################################
@@ -318,7 +320,7 @@ unique(wash_r0$cs_id_individu)
 
 # THEN for car_r0 we take also menage_Id and digits after the "-", remove the 0's then two can be combined
 
-# Change IDs to the same format(not finalised)
+# Change IDs to the same format
 
 # Create a variable in which we will safe the new formatted and cleaned ID
 wash_r0_lab$menage_id_member = NA
@@ -595,6 +597,7 @@ length(unique(humanR1e$record_id)) # one missing needs checking still
 length(unique(humanR1$record_id)) # all household samples are included
 table(!duplicated(humanR1e$record_id))
 
+
 # Select relevant variables from lab data
 humanR1e_sel = humanR1e %>% select(village,village_name,menage_id, intervention_text, household,menage_id_member,record_id,
                                    id_ecantillon,germe_c, date,esbl_pos)
@@ -829,7 +832,7 @@ table(data_eccmid$r2_test) # 28 could not be found back in R0 so seems to have g
 
 names(data_eccmid)
 
-data_eccmid = data_eccmid %>% select(-c(village_name.x, intervention_text.x, household, record_id,id_ecantillon,date,germe_c,ajouter)) %>%
+data_eccmid = data_eccmid %>% select(-c(village_name.x, intervention_text.x, household, id_ecantillon,date,germe_c,ajouter)) %>%
   rename(village_name = "village_name.y",
          intervention_text = "intervention_text.y") %>%
   # ADD Acquisitions and decolonisations 
@@ -855,7 +858,7 @@ sum(complete.cases(data_eccmid[, c("esbl_pos", "r1_esbl_pos", "r2_esbl_pos")])) 
 
 # Add household variables
 data_eccmid_hh = left_join(data_eccmid,HR0_final, by="menage_id_member", suffix=c("","")) %>% 
-  select(-c(household, record_id,id_ecantillon,germe_c,date)) %>%
+  select(-c(household,id_ecantillon,germe_c,date)) %>%
   mutate(age = as.numeric(age),
          sexe = as.character(sexe))
 sapply(data_eccmid_hh, function(x) class(x))
@@ -887,21 +890,112 @@ table(data_eccmid$r2_decolonisation)
 prop.table(table(data_eccmid$intervention_text,data_eccmid$r1_decolonisation),1)
 prop.table(table(data_eccmid$intervention_text,data_eccmid$r2_decolonisation),1)
 
+# Add antibiotic use by village using weigthed averages
+test = abx %>% group_by(village.cluster, round, providertype) %>%
+  summarise(n = n(),
+            watch = sum(watch==1),
+            antibiotic = sum(antibiotic==1),
+            hcu = unique(hcu))%>%
+  mutate(watch_p = watch/n,
+         abx_p = antibiotic/n) %>%
+  filter( round == "baseline") 
+
+# Should take only data from BF
+# test_w = test %>% group_by(village.cluster) %>%
+#   summarise(watch_p_w = sum(watch_p)
+#   watch_
+
+
 # Export dataset
 write_xlsx(data_eccmid_hh, paste0(DirectoryDataOut, "/data_colonisation_eccmid.xlsx"))
 
 
-# Fit model
-# R2 is 3 months after the intervention
-m1 = glmer(r2_acquisition ~ intervention_text + age + sexe + nmbre_personne_menage + 
-             (1|village), family=binomial, 
-           data=data_eccmid_hh)
+#####################################################
+# ANALYSES FOR ECCMID ABSTRACT
+#####################################################
 
-summary(m1)
-coefficients <- fixef(m1)
+coldata<-read_xlsx("./Data/BF/clean/data_colonisation_eccmid.xlsx")
+
+# Note that if acquisition occurs in between screening round 0 (baseline) and round 1 (at time of intervention)
+# then an acquisition cannot occur between round 1 and round 2 (3 month later) because individual will 
+# already be positive at round 1. And if already positive at round 1 individual will not be at risk 
+# of a post-intervention acquisition
+# Note that field r2_acquisition currently doesn't take into account that individuals are not 
+# at risk in round 1 
+
+# Proposed analysi 1 s -  include in analysis only if a negative swab at round one
+# i.e r1_esbl_pos =0   and a swab (whether pos or neg) at round 2 (i.e r2_esbl_pos is 1 or 0)
+#  outcome is 1 if r2_esbl_pos  
+# adjust for clustering at household level (menage_id) and include covariates for age (age), sex (sexe) and 
+# intervention (as coded in field intervention_text)
+# then as a sensitivity analysis consider only thoe with two initial negative swab
+
+coldata$include_in_analysis1<-coldata$r1_esbl_pos == 0 & (coldata$r2_esbl_pos ==1 |coldata$r2_esbl_pos ==0)
+
+coldata[ , c(4,5,6,7,12,15,16,92)]
+
+
+coldataforanalysis1<-coldata[coldata$include_in_analysis1==TRUE & !is.na(coldata$include_in_analysis1), c(1,2,4,5,6,7,12,15,16,18,92)]
+coldataforanalysis1$intervention<-ifelse(coldataforanalysis1$intervention_text=="intervention",1 , 0)
+
+
+# first with no random effects or other covariates
+logreg0<-glm(r2_esbl_pos ~ intervention , data=coldataforanalysis1,  family = binomial(link = "logit"))
+summary(logreg0)
+exp(logreg0$coefficients)
+exp(confint(logreg0)) # # Effect intervention: OR = 1.14 (CI:0.75 - 1.73)
+
+
+# then with covariates and random effects 
+logreg1<-glmer(r2_esbl_pos ~ age + sexe + intervention + (1|menage_id), data=coldataforanalysis1,  family = binomial(link = "logit"))
+summary(logreg1)
+exp(fixef(logreg1))
+exp(confint(logreg1, method="Wald"))[2:5,]  # Effect intervention: OR = 1.23 (CI:0.74 - 2.01)
+
+# Fit with village cluster
+# then with covariates and random effects 
+logreg2<-glmer(r2_esbl_pos ~ age + sexe + intervention + (1|village), data=coldataforanalysis1,  family = binomial(link = "logit"))
+summary(logreg2)
+
+coefficients <- fixef(logreg2)
 coef = exp(coefficients)
-ci = exp(confint(m1))
-cbind(coef,ci)
+ci = exp(confint(logreg2, method="boot"))[2:5,]
+cbind(coef,ci[2:5,])  # Effect intervention: OR = 1.18 (CI:0.50 - 2.51)
+
+
+
+# now repeat but with a sensitivity analysis only taking those with first two swabs negative as at risk (as these are those we are most confident of not beng colonised)
+coldata$include_in_analysis2<-coldata$esbl_pos==0 & coldata$r1_esbl_pos == 0 & (coldata$r2_esbl_pos ==1 |coldata$r2_esbl_pos ==0)
+
+coldata[ , c(4,5,6,7,12,15,16,93)]
+
+
+coldataforanalysis2<-coldata[coldata$include_in_analysis2==TRUE & !is.na(coldata$include_in_analysis2), c(1,2,4,5,6,7,12,15,16,18,93)]
+coldataforanalysis2$intervention<-ifelse(coldataforanalysis2$intervention_text=="intervention",1 , 0)
+
+# first with no random effects or other covariates
+logreg0sens1<-glm(r2_esbl_pos ~ intervention , data=coldataforanalysis2,  family = binomial(link = "logit"))
+summary(logreg0sens1)
+exp(logreg0sens1$coefficients)
+exp(confint(logreg0sens1)) # # Effect intervention: OR = 0.90 (CI:0.50 - 1.62)
+
+
+logreg1sens1<-glmer(r2_esbl_pos ~ age + sexe + intervention + (1|menage_id), data=coldataforanalysis2,  family = binomial(link = "logit"))
+# random effects models fails with error "boundary (singular) fit: see help('isSingular')"
+
+# fixed effects with covariates
+logreg1sens1a<-glm(r2_esbl_pos ~ age + sexe + intervention , data=coldataforanalysis2,  family = binomial(link = "logit"))
+summary(logreg1sens1a)
+coef = exp(logreg1sens1a$coefficients)
+ci = exp(confint(logreg1sens1a))
+cbind(coef,ci) # Effect intervention: OR = 1.02 (CI:0.55 - 1.87)
+
+sum(complete.cases(coldata[, c("esbl_pos", "r1_esbl_pos", "r2_esbl_pos")])) # 892
+d = coldata %>% filter(complete.cases(coldata[, c("esbl_pos", "r1_esbl_pos", "r2_esbl_pos")]))
+length(unique(d$menage_id))
+table(d$esbl_pos)
+table(coldataforanalysis1$)
+
 
 
 
