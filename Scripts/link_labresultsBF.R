@@ -952,16 +952,6 @@ summary(logreg1)
 exp(fixef(logreg1))
 exp(confint(logreg1, method="Wald"))[2:5,]  # Effect intervention: OR = 1.23 (CI:0.74 - 2.01)
 
-# Fit with village cluster
-# then with covariates and random effects 
-logreg2<-glmer(r2_esbl_pos ~ age + sexe + intervention + (1|village), data=coldataforanalysis1,  family = binomial(link = "logit"))
-summary(logreg2)
-
-coefficients <- fixef(logreg2)
-coef = exp(coefficients)
-ci = exp(confint(logreg2, method="boot"))[2:5,]
-cbind(coef,ci[2:5,])  # Effect intervention: OR = 1.18 (CI:0.50 - 2.51)
-
 
 
 # now repeat but with a sensitivity analysis only taking those with first two swabs negative as at risk (as these are those we are most confident of not beng colonised)
@@ -994,7 +984,6 @@ sum(complete.cases(coldata[, c("esbl_pos", "r1_esbl_pos", "r2_esbl_pos")])) # 89
 d = coldata %>% filter(complete.cases(coldata[, c("esbl_pos", "r1_esbl_pos", "r2_esbl_pos")]))
 length(unique(d$menage_id))
 table(d$esbl_pos)
-table(coldataforanalysis1$)
 
 
 
