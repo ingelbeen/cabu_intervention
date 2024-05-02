@@ -33,7 +33,7 @@ villages = readxl::read_xlsx(paste0(DirectoryData, "/bf_villages_cabu.xlsx"))
 names(villages) = c("village", "village_name","intervention_text","ajouter")
 
 # Antibiotic use data
-# abx = read.csv("./Data/BF/clean/watch_acute.csv")
+abx = read.csv("./Data/BF/clean/watch_acute.csv")
 
 
 # Add variables village and household
@@ -621,7 +621,7 @@ table(HR0_all$r0.esble, useNA="always")
 table(HR0_all$r0.salm)
 
 # Also create a dataset with just one observation per individual
-d = HR0_all %>% filter(is.na(germe_c) | germe_c %in% c("e.coli","e.coli_2","e.coli_3")) %>% 
+d = HR0_all %>% filter(is.na(germe_c) | germe_c %in% c("e.coli","e.coli_2","e.coli_3","salmonella")) %>% 
   mutate(
     r0.salm = ifelse(menage_id_member%in%idsalm, 1,0),
     r0.esble = ifelse(menage_id_member %in% idesble, 1, 0)
@@ -793,7 +793,7 @@ table(HR1_all$r1.esble)
 table(HR1_all$r1.salm)
 
 # Also create a dataset with just one observation per individual
-d = HR1_all %>% filter(is.na(germe_c) | germe_c %in% c("e.coli","e.coli_2","e.coli_3")) %>% 
+d = HR1_all %>% filter(is.na(germe_c) | germe_c %in% c("e.coli","e.coli_2","e.coli_3", "salmonella")) %>% 
   mutate(
     r1.salm = ifelse(menage_id_member%in%idsalm, 1,0),
     r1.esble = ifelse(menage_id_member %in% idesble, 1,0)
@@ -942,7 +942,7 @@ table(HR2_all$r2.esble)
 table(HR2_all$r2.salm)
 
 # Also create a dataset with just one observation per individual
-d = HR2_all %>% filter(is.na(germe_c) | germe_c %in% c("e.coli","e.coli_2","e.coli_3")) %>% 
+d = HR2_all %>% filter(is.na(germe_c) | germe_c %in% c("e.coli","e.coli_2","e.coli_3", "salmonella")) %>% 
   mutate(
     r2.salm = ifelse(menage_id_member%in%idsalm, 1,0),
     r2.esble = ifelse(menage_id_member %in% idesble, 1,0)
@@ -1092,7 +1092,7 @@ table(HR3_all$r3.esble)
 table(HR3_all$r3.salm)
 
 # Also create a dataset with just one observation per individual
-d = HR3_all %>% filter(is.na(germe_c) | germe_c %in% c("e.coli","e.coli_2","e.coli_3")) %>% 
+d = HR3_all %>% filter(is.na(germe_c) | germe_c %in% c("e.coli","e.coli_2","e.coli_3", "salmonella")) %>% 
   mutate(
     r3.salm = ifelse(menage_id_member%in%idsalm, 1, 0),
     r3.esble = ifelse(menage_id_member %in% idesble, 1,0)
@@ -1251,28 +1251,6 @@ table(HR3_e$r3.esble)
 
 length(unique(HR_e_total_wide$menage_id_member))
 
-# Create acquisition variables
-# Still needs checking; don't think currently goes well
-# HR_e_total_wide = HR_e_total_wide %>% mutate(
-#   m3.acquisition.r1 = ifelse(r1.esble=="No" & r2.esble=="Yes", "Yes", 
-#                              ifelse(r0.esble=="Yes"|is.na(r2.esble), NA,"No")),
-#   m9.acquisition.r1 = ifelse(r1.esble=="No" & r3.esble=="Yes", "Yes", 
-#                              ifelse(r0.esble=="Yes"|is.na(r3.esble), NA,"No")),
-#   m3.acquisition.r0 = ifelse(r0.esble=="No" & r1.esble=="No" & r2.esble=="Yes", "Yes", 
-#                              ifelse(r0.esble=="Yes"|r1.esble=="Yes"|is.na(r2.esble), NA,"No")),
-#   m9.acquisition.r0 = ifelse(r0.esble=="No" & r1.esble=="No" & r3.esble=="Yes", "Yes", 
-#                              ifelse(r0.esble=="Yes"|r1.esble=="Yes"|is.na(r3.esble), NA,"No"))
-# )
-
-# sapply(HR_e_total_wide%>%select(m3.acquisition.r0,m3.acquisition.r1,m9.acquisition.r0,m9.acquisition.r1),
-#        function(x) table(x, useNA="always"))
-# 
-# table(HR_e_total_wide$r1.esble,HR_e_total_wide$r2.esble)
-# table(HR_e_total_wide$m3.acquisition.r1,HR_e_total_wide$r2.esble, useNA="always")
-# 
-# table(HR_e_total_wide$r1.esble,HR_e_total_wide$r3.esble)
-
-
 # Export dataset
 write.csv(HR_e_total_wide, paste0(DirectoryDataOut, "./linked_final/bf_hh_stool_esble_r0123_wide.csv")) 
 
@@ -1283,85 +1261,457 @@ write.csv(HR_e_total_wide, paste0(DirectoryDataOut, "./linked_final/bf_hh_stool_
 
 #################################################################################
 # Number of individuals we have complete records of
-sum(complete.cases(HR_e_total_wide[, c("r0.esble", "r1.esble", "r2.esble", "r3.esble")])) # 763 individuals
+sum(complete.cases(HR_e_total_wide[, c("r0.esble", "r1.esble", "r2.esble", "r3.esble")])) # 803 individuals
+
+
+#################################################################################
+# CREATE DATASET FOR MSM MODEL
+#################################################################################
+
+
+rm(list=ls())
+
+# Load functions
+source("./Scripts/functions/multiplot.R")
+
+# load package
+pacman::p_load(readxl, writexl, lubridate, zoo, ggplot2, tidyverse, Hmisc, stringr,lme4,reshape2, 
+               openxlsx, table1, flextable, magrittr, officer, summarytools, msm,
+               survey,tsModel, mgcv)
+
+
+df = read.csv("./Data/BF/clean/linked_final/bf_hh_stool_esble_r0123_wide.csv")
+dfl = read.csv("./Data/BF/clean/linked_final/bf_hh_stool_esble_r0123.csv")
+
+df0 = df %>% filter(!is.na(r0.esble))
+dfc = df %>% filter(complete.cases(r1.esble, r2.esble, r3.esble)) # 775 complete cases; however, later
+# becomes clear there are individuals with unlikely collection dates. 
+
+# Antibiotic use
+abx = read.csv("./Data/BF/clean/watch_acute.csv")
+vabx = read.csv("./Data/BF/Raw/village_abx_vs_hh.csv", sep=";") %>% select(village.cluster,village_name)
+# Two clusters did not have a pharmacy so no abxuse
+abx = left_join(abx,vabx)
+abxn = abx %>% filter(site =="Nanoro")
+
+#############################################################
+# PREAMBLE
+#############################################################
+
+########################
+# ABX USE
+########################
+nsurveys_by_providertype_by_village <- abxn %>%
+  group_by(village_name, providertype, round) %>%
+  summarise(n_surveys = n(), hcu = mean(hcu))
+nsurveys_by_providertype_by_village
+
+pop_by_village = abxn %>% select(village_name,pop_villagecluster) %>%
+  filter(!duplicated(village_name))
+
+poststratificationweight <- merge(nsurveys_by_providertype_by_village, pop_by_village, by = "village_name")
+poststratificationweight$poststratweight <- (poststratificationweight$pop_villagecluster*poststratificationweight$hcu)/poststratificationweight$n_surveys
+
+poststratificationweight_village = poststratificationweight %>% group_by(village_name,round)%>%
+  summarise(weights = sum(poststratweight))
+
+abxn = left_join(abxn, poststratificationweight_village, by=c("village_name", "round"))
+
+# proportion estimates by village and pre/post
+surveydesign <- svydesign(id = ~village_name, data = abxn, nest = TRUE)
+watchclusterprop <- svyby(~watch, by = ~village_name + round, design = surveydesign, FUN = svymean, na.rm = TRUE)
+
+poststratweightedsurveydesign <- svydesign(id = ~village_name, weights = ~weights, data = abxn, nest = TRUE)
+
+
+poststratweightedwatchprop <- svyby(~watch, by = ~village_name + round, design = poststratweightedsurveydesign, FUN = svymean, na.rm = TRUE)
+poststratweightedabxprop <- svyby(~antibiotic, by = ~village_name + round, design = poststratweightedsurveydesign, FUN = svymean, na.rm = TRUE)
+
+abxn_vw = left_join(poststratweightedwatchprop%>%select(-c(se)),
+                    poststratweightedabxprop %>% select(-c(se)))
+abxn_vw0 = abxn_vw %>% filter(round=="baseline")
+
+rm(nsurveys_by_providertype_by_village, pop_by_village,poststratweightedsurveydesign,
+   poststratificationweight_village, poststratweightedabxprop,poststratweightedwatchprop,
+   poststratificationweight, watchclusterprop,surveydesign, abxn,abxn_vw,abx,vabx)
+
+# link with dataframe
+dfl = left_join(dfl, abxn_vw0, by="village_name", multiple="first")
+df = left_join(df, abxn_vw0, by="village_name", multiple="first")
+
+###############################################################
+# DATASET FOR MSM MODEL
+###############################################################
+
+# Not all individuals have a stool collection date (i.e. those with no ESBL)
+# However, using the consent date for the ones with 
+# Check dates
+dfl = dfl %>% mutate(
+  date = as.Date(date, format="%Y-%m-%d"),
+  date.stool.collection = as.Date(date.stool.collection, format="%Y-%m-%d"),
+  date.consent = as.Date(date.consent, format = "%Y-%m-%d"),
+  date.stool.collection = as.Date(date.stool.collection, format="%Y-%m-%d"),
+  date.check = date - date.consent,
+  date.check.collect = date - date.stool.collection,
+  date.use = as.character(date.stool.collection),
+  date.use = ifelse(is.na(as.character(date.stool.collection)), 
+                    as.character(date.consent),as.character(date.stool.collection)), # This replaced the empty dates with consent date as proxy
+  date.use = as.Date(date.use, format = "%Y-%m-%d"),
+  month = format(date.use,"%m"),
+  date.check.use = date - date.use,
+  time = ifelse(redcap_event_name =="round_0_arm_1", 0,
+                ifelse(redcap_event_name == "round_1_arm_1", 1,
+                       ifelse(redcap_event_name == "round_2_arm_1", 2,3))),
+  rainy = ifelse(month%in%c("06","07","08","09"),"yes", "no"))
+
+table(dfl$date.use, useNA="always")
+dfl$date.use[is.na(dfl$date.use)] = dfl$date[is.na(dfl$date.use)] 
+
+ggplot(dfl, aes(x=date.check.collect, group=redcap_event_name)) + geom_histogram() +
+  facet_wrap(~ redcap_event_name)
+
+ggplot(dfl, aes(x=date.check.use, group=redcap_event_name)) + geom_histogram() +
+  facet_wrap(~ redcap_event_name)
+
+table(dfl$date.check.use, useNA="always") # Date variable can not be used for the time, as has any NAs 
+
+# We can make a minimum date per round so to ensure we only include those with a correct date per round
+r0min = min(dfl$date.use[dfl$redcap_event_name=="round_0_arm_1"], na.rm=T) # 
+r1min = min(dfl$date.use[dfl$redcap_event_name=="round_1_arm_1"], na.rm=T) # For round 1 not correct as same as round 0
+# Should be R0+~90 days
+r1min = r0min+90
+r2min = min(dfl$date.use[dfl$redcap_event_name=="round_2_arm_1"], na.rm=T)
+r3min = min(dfl$date.use[dfl$redcap_event_name=="round_3_arm_1"], na.rm=T)
 
 
 
+# START CREATING DATASET BY SELECTING COMPLETE CASES + CASES WITH CORRECT STOOL.COLLECTION/CONSENT.DATE
+##############################################################
+dfls = dfl %>% filter(time!=0) %>%
+  mutate(
+    rc = ifelse(time==1 & date.use>=r1min| 
+                  time==2 & date.use>=r2min| 
+                  time==3 & date.use>=r3min, 1,0)
+  )
+table(dfls$rc, useNA="always")
 
-###########################################################
-# DESCRIPTIVE TABLE 1
-###########################################################
+dfls = dfls %>% filter(rc!=0) %>% select(-c(rc))
+
+# Which are the individuals with observation in round 1, 2, and 3
+complete.cases.id = dfls %>% group_by(menage_id_member) %>%
+  summarise(nround = length(menage_id_member)) %>% 
+  filter(as.numeric(nround)==3)
+complete.cases.id=unique(complete.cases.id$menage_id_member)
+
+data.frame(table(dfls$menage_id_member[dfls$menage_id_member%in%complete.cases.id]))
+
+dfls = dfls %>% filter(menage_id_member %in% complete.cases.id) # 785
+
+d = dfl %>% filter(time==0) %>% group_by(menage_id_member) %>%
+  summarise(start0 = min(date.use))
+
+# Create start when round 1 is taken as baseline
+d1 = dfls %>% filter(time!=0) %>% group_by(menage_id_member) %>%
+  summarise(start1 = min(date.use))
+
+dfls = left_join(dfls,d, by="menage_id_member")
+dfls = left_join(dfls,d1, by="menage_id_member")
+
+# Create a variable that calculates the number of days between the collection date and first round
+dfls$time.start0 =  dfls$date.use - dfls$start0
+dfls$time.start1 =  dfls$date.use - dfls$start1
+
+dfls = dfls[order(dfls$menage_id_member, dfls$time),]
 
 
-# Date: 15 April 2024
+ggplot(dfls, aes(x=time.start1, group=redcap_event_name)) + geom_histogram() +
+  facet_wrap(~ redcap_event_name)
 
-# Descriptives for which variables to include in analyses
-table(HR0_e$r0.esble)
+# remove those with wrong dates
+r2w = dfls[which(dfls$redcap_event_name=="round_2_arm_1" & as.numeric(dfls$time.start1)==0),]
+r1w = dfls[which(dfls$redcap_event_name=="round_1_arm_1" & dfls$start1<"2023-01-01"),]
 
-# Table 1
-sapply(HR0_e, function(x) table(x))
-sapply(HR0_e, function(x) class(x))
+dfls = dfls[-c(which(dfls$redcap_event_name=="round_2_arm_1" & as.numeric(dfls$time.start1)==0)),]
+#dfls = dfls[-c(which(dfls$redcap_event_name=="round_0_arm_1" & as.numeric(dfls$time.start)>100)),]
 
-# trial
-wash_r0_table1 = table1(~ intervention.text + age +
-                          n.householdmember +
-                          n.child.0to5 +
-                          n.households.concession +
-                          q1.diar.prev.water.pot.covered +
-                          q1.diar.prev.no.finger.in.waterglass +  
-                          q1.diar.prev.utensil.to.take.water.from.pot + 
-                          q1.diar.prev.cover.food +
-                          q1.diar.prev.boil.water + 
-                          q1.diar.prev.filter.water + 
-                          q1.diar.prev.other+q1.diar.prev.cant.be.avoided + 
-                          q1.diar.prev.dont.know + 
-                          q2.main.water.source.dry + 
-                          q3.main.water.source.rainy + 
-                          q4.cans.storage.water + 
-                          q5a.cans.storage.water.closed.when.filled +
-                          q5b.cans.storage.water.closed.wen.empty + 
-                          q5c.cans.cleaned.before.reuse +
-                          q6.treatment.water + 
-                          q7.principle.defication + 
-                          q8.other.defecation.flush.toiled.septic + 
-                          q8.other.defecation.pit.latrine.ventilation + 
-                          q8.other.defecation.pit.latrine.slab + 
-                          q8.other.defecation.pit.latrine.no.slab +
-                          q8.other.defecation.open.defecation + 
-                          q8.other.defecation.other +                                
-                          q8.other.defecation.none + 
-                          q9.shared.toilet + 
-                          q10.n.shared.toilet +
-                          q11.toilet.last.cleaned + 
-                          q12.disposal.child.stool + 
-                          q13.disposal.latrine.pit +
-                          q14.handwashing.product+ 
-                          q15.handwashing.defecation + 
-                          q16.handwashing.meals +  
-                          q17.animals.around.household + 
-                          q18.animal.inside.cow +  
-                          q18.animal.inside.sheep.goat + 
-                          q18.animal.inside.pig + 
-                          q18.animal.inside.donkey.horse + 
-                          q18.animal.inside.chicken.goose.duck +  
-                          q18.animal.inside.other +  
-                          q19.animal.inside.cow + q19.animal.inside.sheep.goat +
-                          q19.animal.inside.pig +
-                          q19.animal.inside.donkey.horse +
-                          q19.animal.inside.chicken.goose.duck + 
-                          q19.animal.inside.other +   
-                          q20.animal.excrement.floor +    
-                          q21.when.animal.ill.treatment.with.vet + 
-                          q21.when.animal.ill.treatment.without.vet +
-                          q21.when.animal.ill.bucher +
-                          q21.when.animal.ill.eat.meat.at.home +     
-                          q21.when.animal.ill.burie.dispose +
-                          q21.when.animal.ill.autre +     
-                          eau.assainissement.hygine.complete| factor(r0.esble), data=HR0_e)
-wash_r0_table1
+ggplot(dfls, aes(x=time.start1, group=redcap_event_name)) + geom_histogram() +
+  facet_wrap(~ redcap_event_name)
 
-t1flex(wash_r0_table1) %>% 
-  save_as_docx(path="./Output/Tables/wash_r0_table1.docx")
+dfls = dfls[order(dfls$menage_id_member, dfls$time),]
 
+
+# start dates per round
+start.round = dfls %>% group_by(redcap_event_name) %>%
+  summarise(
+    start = min(date.use, na.rm=T)
+  )
+start.round
+start.round1 = start.round$start[2] 
+
+# Calculate number of positives per household to add as covariate in the model
+hh_pos = dfl %>% filter(menage_id_member%in%complete.cases.id) %>% 
+  group_by(time, menage_id) %>%
+  summarise(nesbl = sum(esble))
+hh_pos = hh_pos[order(hh_pos$menage_id,hh_pos$time),]
+hh_pos$nesbl_tminus = lag(hh_pos$nesbl)
+hh_pos$nesbl_tminus[hh_pos$time==0] = NA
+
+
+dfls = left_join(dfls,hh_pos, by=c("menage_id", "time"))
+#dfls$nesbl_tminus = lag(dfls$nesbl)
+
+# Add number of tested individual per round per household as denominator for prevalence
+d = dfls %>% group_by(menage_id, time) %>%
+  summarise(
+    n.tested = length(menage_id_member)
+  )
+
+d
+dfls = left_join(dfls,d, multiple="first")
+
+
+# Create dataset for analyses
+dfls = dfls %>% mutate(
+  days = as.numeric(date.use - start1) # use individual first stool collection date, as each village had different start of intervention
+) %>% filter(redcap_event_name!="round_0_arm_1" & menage_id_member%in%complete.cases.id)
+length(unique(dfls$menage_id_member))
+table(dfls$menage_id_member, dfls$time) # ALL IDS HAVE THREE OBSERVATIONS
+
+dfls = dfls[order(dfls$menage_id_member,dfls$time),]
+dfls$check.rounds = dfls$time.start1 - lag(dfls$time.start1)
+dfls$check.rounds[dfls$redcap_event_name=="round_1_arm_1"] = NA
+hist(as.numeric(dfls$check.rounds))
+
+# Remove all those with a negative check.round as then the date.collection in next round is before the previous
+table(dfls$check.rounds)
+out = which(dfls$check.rounds<1)
+dfls = dfls[-c(out),] %>% select(-c(date.check,check.rounds))
+
+
+# How many unique individuals
+length(unique(dfls$menage_id_member)) # 785
+dfls = dfls[order(dfls$menage_id_member, dfls$time),]
+
+# Dataset for msm model
+dfls = dfls %>% 
+  mutate(esble = as.numeric(esble)+1) %>%
+  select(-c(date.check.collect, date_conserv, intervention_text,X)) 
+
+reorder_col = c("time", "redcap_event_name","time.start0","time.start1","start0","start1", "days","date.use","month","rainy", "menage_id_member", "menage_id",
+                "village_name","intervention.text", "age", "agegr10", "sexe", "n.householdmember","esble","nesbl","nesbl_tminus","n.tested",
+                "salm", "ast_done",
+                "date","date.stool.collection", "date.consent", "date.check")
+nincl = names(dfls)[!names(dfls)%in%reorder_col]
+desired_order = c(reorder_col,nincl)
+desired_order = desired_order[desired_order%in%names(dfls)]
+dfls =  dfls[,desired_order]
+
+# positive per round
+dfls %>% group_by(time) %>%
+  summarise(
+    esblsum = sum(esble-1),
+    #acquisitionsum = sum(acquisition,na.rm=T),
+    n = length(unique(menage_id_member)),
+    prev = esblsum/n
+  )
+
+# Also create a dataset with baseline 0 round included
+d = dfl %>% filter(menage_id_member%in%complete.cases.id & redcap_event_name=="round_0_arm_1")
+
+d = left_join(d, dfls%>%select(menage_id_member,start0, start1, time.start0,time.start1), multiple="first")
+d = d %>% select(-c(X)) %>%
+  mutate(days = as.numeric(date.use - start1))
+
+hh_pos = d %>% group_by(time,menage_id) %>%
+  summarise(nesbl = sum(esble)
+  )
+hh_pos = hh_pos[order(hh_pos$menage_id, hh_pos$time),]
+hh_pos$nesbl_tminus = NA
+
+d = left_join(d,hh_pos, by=c("menage_id", "time"))
+d$esble = d$esble+1
+
+# Add number of tested individual per round per household as denominator for prevalence
+ds = d %>%filter(time==0)%>% group_by(menage_id, time) %>%
+  summarise(
+    n.tested = length(menage_id_member)
+  )
+
+d = left_join(d,ds, multiple="first")
+
+table(d$time,d$esble)
+
+names(d)
+desired_order
+
+d = d[, desired_order]
+dfls0 = rbind(d,dfls)
+dfls0 = dfls0[order(dfls0$menage_id_member, dfls0$time),]
+table(dfls0$time,dfls0$esble)
+
+dfls0 %>% group_by(time) %>%
+  summarise(
+    esblsum = sum(esble-1),
+    n = length(unique(menage_id_member)),
+    prev = esblsum/n
+  )
+
+# check the days variable
+dfls0 %>% group_by(time) %>%
+  ggplot(., aes(x=days)) + geom_histogram() +
+  facet_wrap(.~redcap_event_name)
+
+dfls0 %>% group_by(time) %>%
+  summarise(median=median(days, na.rm=T),
+            q1 = quantile(days,probs=0.25, na.rm=T),
+            q3 = quantile(days,probs=0.75,na.rm=T))
+
+# Create new day variable for when fitting MSM with R0, so counting days from R0
+dfls0 = dfls0[order(dfls0$menage_id_member,dfls0$time),]
+dfls0 = dfls0 %>% group_by(menage_id_member)%>%
+  mutate(days2 = lag(days),
+         days2 = ifelse(is.na(days2), 0,
+                        ifelse(time==1,(days2*-1),
+                               ifelse(time%in%c(2,3), days, days2))),
+         daysl = lag(days2)) %>%
+  group_by(menage_id_member) %>%
+  mutate(days2 = ifelse(time==2, days2+daysl,days2),
+         daysl = lag(days2))
+ 
+dfls0 = dfls0 %>% group_by(menage_id_member) %>%
+   mutate(days2=ifelse(time==3, days2+daysl,days2)
+   )    
+
+# Add acquisition and decolonisation variable 
+da_lag = dfls0%>% select(time,menage_id_member,esble) %>% group_by(menage_id_member) %>%
+  mutate(lagesbl = lag(esble),
+         lag2esbl = lag(esble,2))
+
+#da_lag$time = dfls0$time
+#da_lag$menage_id_member =dfls0$menage_id_member
+#da_lag = da_lag[order(da_lag$menage_id_member,da_lag$time),]
+#da_lag$lagesbl[da_lag$time==0] = NA
+
+da_lag$check=da_lag$esble-da_lag$lagesbl
+da_lag$check2=da_lag$esble-da_lag$lag2esbl
+
+da_lag$acquisition = ifelse(da_lag$check==1, 1,
+                            ifelse(da_lag$lagesbl==2,NA,0))
+da_lag$decolonisation = ifelse(da_lag$check==-1, 1,
+                               ifelse(da_lag$lagesbl==1, NA,0))
+da_lag$acquisition2 = ifelse(da_lag$time==3, da_lag$esble-1, da_lag$acquisition) # For sensitivity analyses, i.e. all individuals at R3 were at risk at R2, assuming so as decolonisation time is 4M on average (paper Bootsma)
+da_lag$acquisition3 = ifelse(da_lag$time==2 & da_lag$check==1 & da_lag$check2==1, 0, da_lag$acquisition) # For sensitivity analyses, where all those negative at both R0 and R1 were assumed at risk for R2 (instead of only negative at R1)
+
+da_lag$decolonisation2 = ifelse(da_lag$time==3, da_lag$esble-1, da_lag$decolonisation) # For sensitivity analyses, i.e. all individuals at R3 were at risk at R2, assuming so as decolonisation time is 4M on average (paper Bootsma)
+da_lag$decolonisation3 = ifelse(da_lag$time==2 & da_lag$check==-1 & da_lag$check2==-1, 0, da_lag$decolonisation) # For sensitivity analyses, where all those negative at both R0 and R1 were assumed at risk for R2 (instead of only negative at R1)
+
+
+da_lag = da_lag %>% select(c(time,menage_id_member,acquisition,decolonisation, acquisition2, acquisition3, decolonisation2, decolonisation3))
+dfls = left_join(dfls,da_lag)
+dfls0 = left_join(dfls0,da_lag)
+
+hh_acq = dfls0 %>% group_by(time,menage_id) %>%
+  summarise(nacquisition = sum(acquisition, na.rm=T),
+            nacquisition2 = sum(acquisition2, na.rm=T),
+            nacquisition3 = sum(acquisition3, na.rm=T),
+            ndecolonisation = sum(decolonisation, na.rm=T),
+            ndecolonisation2 = sum(decolonisation2, na.rm=T),
+            ndecolonisation3 = sum(decolonisation3, na.rm=T)
+  )
+
+
+dfls = left_join(dfls,hh_acq)
+dfls0 = left_join(dfls0,hh_acq)
+
+# Acquisitions per round
+pa = dfls0 %>% group_by(time) %>%
+  summarise(
+    acqsum = sum(acquisition, na.rm=T),
+    acqsum2 = sum(acquisition2, na.rm=T),
+    acqsum3 = sum(acquisition3, na.rm=T),
+    n = length(unique(menage_id_member)[!is.na(acquisition)]),
+    n2 = length(unique(menage_id_member)),
+    n3 = length(unique(menage_id_member)[!is.na(acquisition3)])
+    )%>%
+      mutate(
+        n2 = ifelse(time==0, 0,
+                          ifelse(time%in%c(1,2),n,n2)),
+    prev = acqsum/n,
+    prev2= acqsum2/n2,
+    prev3= acqsum3/n3
+  )
+pa
+
+reorder_col = c("time", "redcap_event_name","time.start0","time.start1","start0","start1", "days","days2", "date.use","month", "rainy", "menage_id_member", "menage_id",
+                "village_name","intervention.text", "age", "agegr10", "sexe", "n.householdmember","esble","nesbl","nesbl_tminus","n.tested",
+                "acquisition","acquisition2", "acquisition3", "nacquisition","nacquisition2","nacquisition3", "decolonisation","decolonisation2", "decolonisation3",
+                "ndecolonisation", "ndecolonisation2", "ndecolonisation3",
+                "salm", "ast_done",
+                "date","date.stool.collection", "date.consent", "date.check")
+nincl = names(dfls)[!names(dfls)%in%reorder_col]
+desired_order = c(reorder_col,nincl)
+dfls0 = dfls0[,desired_order[desired_order!="date.check"]]
+
+desired_order = desired_order[desired_order%in%names(dfls)]
+dfls =  dfls[,desired_order]
+
+
+
+###############################################################
+# DATASET FOR LOGISTIC REGRESSION MODEL
+###############################################################
+
+# Combine categories
+dfa = df %>%
+  mutate(
+    q2.main.water.source.dry.c = ifelse(q2.main.water.source.dry %in% c("Tap house", "Tap concession", "Tap public/fountain", "bagged water"),
+                                        "tap/bottled",
+                                        ifelse(q2.main.water.source.dry %in% c("rainwater", "surface water (ponds, dams,rivers,lakes,pits,irrigation canals)"),
+                                               "other",q2.main.water.source.dry)),
+    q3.main.water.source.rainy.c = ifelse(q3.main.water.source.rainy %in% c("Tap house", "Tap concession", "Tap public/fountain", "bagged water"),
+                                          "tap/bottled",
+                                          ifelse(q3.main.water.source.rainy %in% c("rainwater", "surface water (ponds, dams,rivers,lakes,pits,irrigation canals)"),
+                                                 "other",q3.main.water.source.rainy)),
+    q6.treatment.water.c = ifelse(q6.treatment.water %in%  c("Yes,boiling","Yes,cholinate/add desinfectant",
+                                                             "Yes, filter with cloth", "Yes, filter with filter","Yes, Solar desinfection (in the sun)",
+                                                             "Yes, decant"), "Yes", "No"),  
+    q9.shared.toilet.c = ifelse(q9.shared.toilet %in% c("Yes, public","Yes, other households (non-public)"), "Yes", "No")
+  ) %>% filter(menage_id_member %in%complete.cases.id)
+
+# Add number of tested individual per round per household as denominator for prevalence
+d = dfa %>% group_by(menage_id) %>%
+  summarise(
+    r0.ntested = length(menage_id_member[!is.na(r0.esble)]),
+    r.ntested = length(menage_id_member),
+  )
+d
+
+dfa = left_join(dfa, d, multiple="first")
+reorder_col = c("redcap_event_name","menage_id_member", "menage_id",
+                "village_name","intervention.text", "age", "agegr10", "sexe", "n.householdmember","r0.ntested", "r.ntested",
+                "r0.esble","r1.esble","r2.esble","r3.esble","r0.salm","r1.salm","r2.salm","r3.salm",
+                "date.use","date","date.stool.collection", "date.consent")
+nincl = names(dfa)[!names(dfa)%in%reorder_col]
+desired_order = c(reorder_col,nincl)
+desired_order = desired_order[desired_order%in%names(dfa)]
+dfa =  dfa[,desired_order]
+
+dfls = dfls %>% select(-c(time.start0,time.start1))
+dfls0 = dfls0 %>% select(-c(time.start0,time.start1))
+
+table(dfa$r1.esble, useNA="always")
+table(dfa$r2.esble, useNA="always")
+table(dfa$r3.esble, useNA="always")
+
+# Export dataset
+#save(df, file="./Data/BF/clean/use_in_analyses/bf_esbl_wide_all.rda")
+save(dfa, file="./Data/BF/clean/use_in_analyses/bf_esbl_wide_completecases.rda")
+#load("./Data/BF/clean/use_in_analyses/bf_esbl_wide.rda")
+
+save(dfls0, file="./Data/BF/clean/use_in_analyses/bf_esbl0123_long_completecases.rda")
+save(dfls, file="./Data/BF/clean/use_in_analyses/bf_esbl123_long_completecases.rda")
+#save(dfl, file="./Data/BF/clean/use_in_analyses/bf_esbl_long_all.rda")
+
+rm(r1w, r2w,hh_pos, start.round,d1, abxn_vw0, dfc)
 
 
