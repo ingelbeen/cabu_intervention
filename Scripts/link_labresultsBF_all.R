@@ -17,7 +17,8 @@ DirectoryData <- "./Data/BF/Raw"
 DirectoryDataOut <- "./Data/BF/clean"
 
 # Lab data
-car_bf = read.csv(paste0(DirectoryData, "/householdsurvey/CABUBPortageAsymptom_DATA_2024-04-17_1527.csv"), sep=";")
+#car_bf = read.csv(paste0(DirectoryData, "/householdsurvey/CABUBPortageAsymptom_DATA_2024-04-17_1527.csv"), sep=";")
+car_bf = readxl::read_xlsx(paste0(DirectoryData, "/householdsurvey/CABU_WP4_R0-R3.xlsx"))
 
 # Lab ids vs household ids
 hh_lab_ids =  readxl::read_xlsx(paste0(DirectoryData,"/Correspondande-Code_Lab-ID_Menage.xlsx"))
@@ -26,7 +27,8 @@ names(car_bf)
 names(hh_lab_ids) = c("household", "menage_id", "bras")
 
 # Household data
-hh_bf = readxl::read_xlsx(paste0(DirectoryData, "/householdsurvey/CABUBWP4_DATA_2024-04-17_1528.xlsx"))
+#hh_bf = readxl::read_xlsx(paste0(DirectoryData, "/householdsurvey/CABUBWP4_DATA_2024-04-17_1528.xlsx"))
+hh_bf = readxl::read_xlsx(paste0(DirectoryData, "/householdsurvey/CABUWASH_DATA_2024-06-27_R0&R3.xlsx"))
 
 # Villages (that are the clusters) of CABU-EICO
 villages = readxl::read_xlsx(paste0(DirectoryData, "/bf_villages_cabu.xlsx"))
@@ -75,8 +77,8 @@ table(car_bf$germe, car_bf$germe_c, useNA= "always")
 
 # Number of cases positive
 table(car_bf$germe_c, car_bf$esbl_pos)
-table(car_bf$esbl_pos, useNA="always") # These are the ESBL positive patients based on cetriax_or_cefota, 2825
-table(car_bf$testesbl) # These are the ESBL positive patients based on esbl_pos, 2825
+table(car_bf$esbl_pos, useNA="always") # These are the ESBL positive patients based on cetriax_or_cefota, 2842
+table(car_bf$testesbl) # These are the ESBL positive patients based on esbl_pos, 2842
 table(car_bf$esbl_pos==1 & car_bf$testesbl==1) # difference; we decided to ignore these differences
 
 # Remove individuals with diametr_cetriax_or_cefota = NA
@@ -754,9 +756,9 @@ d = HR0_all %>% filter(is.na(germe_c) | germe_c %in% c("e.coli","e.coli_2","e.co
   filter(!duplicated(menage_id_member)) 
 
 # Check if correct
-table(d$r0.esble) # 679 esbl.e
-table(d$esbl_pos) # 679 esbl.e
-table(HR0_all$germe_c, HR0_all$esbl_pos) # 675 e.coli with esble and another 97 with second e. coli. There will be overlap between those two
+table(d$r0.esble) # 683 esbl.e
+table(d$esbl_pos) # 683 esbl.e
+table(HR0_all$germe_c, HR0_all$esbl_pos) # 679 e.coli with esble and another 97 with second e. coli. There will be overlap between those two
 
 HR0_e = d
 
