@@ -371,9 +371,8 @@ kim_anon <- kim %>% select(c("round", "intervention", "clusterID", "providertype
 write.csv(kim_anon, 'kim_anon.csv')
 
 #### 2. IMPORT DATA NANORO #### 
-patient_nan_old <- read.csv("C:/Users/bingelbeen/OneDrive - ITG/AMR BIT/CABU JPIAMR/cabu_intervention/db/patientsurvey/visit_EXIT_registration _Nanoro  2022_.csv")
-# patient_nan <- read_excel("db/patientsurvey/visit_EXIT_registration_Nanoro_25_01_2024__py.xlsx")
-patient_nan <- read.csv("db/patientsurvey/visit_EXIT_registration__Nanoro__2022__results_240126.csv")
+patient_nan <- read.csv("db/patientsurvey/visit_EXIT_registration__Nanoro__2022__results.csv")
+# patient_nan <- read_excel("db/patientsurvey/visit_EXIT_registration__Nanoro__2022__results.xlsx")
 str(patient_nan) # every recorded antibiotic is there in a column
 # show variable names
 colnames(patient_nan)
@@ -627,12 +626,12 @@ watch <- rbind(watchnan, watchkim)
 
 # add population numbers per village/neighbourhood cluster STILL COMPLETE NUMBERS HERE!!!
 watch <- watch %>%  mutate(pop_villagecluster = case_when(
-    village.cluster == "BAL" ~ NA,
-    village.cluster == "BOL" ~ NA,
+    village.cluster == "BAL" ~ 1716,
+    village.cluster == "BOL" ~ 6829,
     village.cluster == "BOU" ~ 3658,
     village.cluster == "CELLULE_MASAMUNA_AS_CBCO" ~ NA,
     village.cluster == "CELLULE_MBUKA3_AS_Yanga_Dia_Songa" ~ NA,
-    village.cluster == "DAC" ~ 1588,
+    village.cluster == "DAC" ~ 1448,
     village.cluster == "GOU" ~ 2840,
     village.cluster == "KAL" ~ 2202,
     village.cluster == "KIANDU_AS_Viaza" ~ 420,
@@ -641,8 +640,8 @@ watch <- watch %>%  mutate(pop_villagecluster = case_when(
     village.cluster == "KIMAKU_AS_Viaza" ~ NA,
     village.cluster == "KITOBOLA_AS_Kilueka" ~ 5772, # seems a lot, considering how small the village is
     village.cluster == "KOK" ~ 1440,
-    village.cluster == "KOU" ~ NA,
-    village.cluster == "LAL" ~ NA,
+    village.cluster == "KOU" ~ 4270,
+    village.cluster == "LAL" ~ 2712,
     village.cluster == "LUKENGEZI_ET_POSTE_AS_CECO" ~ 1300,
     village.cluster == "MALANGA_AS_Malanga" ~ 1740,
     village.cluster == "MBANZA_NDAMBA_AS_Kilueka" ~ 477,
@@ -654,7 +653,7 @@ watch <- watch %>%  mutate(pop_villagecluster = case_when(
     village.cluster == "NKULA_AS_Viaza" ~ 340,
     village.cluster == "PEL" ~ NA,
     village.cluster == "POE" ~ 2304,
-    village.cluster == "POI" ~ NA,
+    village.cluster == "POI" ~ 4580,
     village.cluster == "Q2_(AS_CBCO)" ~ NA,
     village.cluster == "Q2_AS_CECO" ~ 2198,
     village.cluster == "Q3_AS_Kimbanguiste" ~ NA,
@@ -662,7 +661,7 @@ watch <- watch %>%  mutate(pop_villagecluster = case_when(
     village.cluster == "RAK" ~ 2177,
     village.cluster == "SANZIKUA_AS_Vunda_Nsole" ~ 874,
     village.cluster == "SEG" ~ 3942,
-    village.cluster == "SIG" ~ NA,
+    village.cluster == "SIG" ~ 3010,
     village.cluster == "SOA" ~ 2376,
     village.cluster == "SOU" ~ 5334,
     village.cluster == "SOW" ~ 7541,
