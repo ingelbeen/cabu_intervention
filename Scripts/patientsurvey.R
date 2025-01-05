@@ -4,14 +4,14 @@
 #####################################################
 
 # install/load packages
-pacman::p_load(readxl, lubridate, haven, dplyr, tidyr, digest, ggplot2, survey, srvyr, gtsummary, lme4, broom.mixed)
+pacman::p_load(readxl, writexl, lubridate, haven, dplyr, tidyr, digest, ggplot2, survey, srvyr, gtsummary, lme4, broom.mixed)
 
 #### 1. IMPORT DATA KIMPESE #### 
 # 1.1 Kimpese baseline
 # import patient data
 patient_kim_bl <- read_excel("db/patientsurvey/Questionnaire_patient_CABU-RDC_-_all_versions_-_English_-_2024-01-16-12-52-23.xlsx", 
                        sheet = "Questionnaire patient CABU-RDC")
-patient_kim_post <- read_excel("db/patientsurvey/R2_Questionnaire_patient_CABU-RDC_-_all_versions_-_English_-_2024-02-05-14-30-05.xlsx")
+patient_kim_post <- read_excel("db/patientsurvey/R2_Questionnaire_patient_CABU-RDC_-_all_versions_-_English_-_2024-04-19-11-39-44.xlsx")
 # remove variables that the baseline survey data have but the post data don't
 patient_kim_bl <- subset(patient_kim_bl, select = -c(interviewdate, diag_spec))
 # make sure both have the same column names
@@ -23,6 +23,20 @@ patient_kim <- rbind(patient_kim_bl, patient_kim_post)
 
 # remove surveys from two backup clusters that were dropped following too little population/patients at dispensors - SEE if Wene could be recovered as extra control cluster
 # patient_kim <- patient_kim %>% filter(choices_cluster != "KITOBOLA_AS_Kilueka" & choices_cluster != "WENE_AS_Kilueka")
+
+# two observations assigned private clinic in Zamba 1 while there are only private pharmacies in that village
+patient_kim$providertype[patient_kim$providertype=="privateclinic"&patient_kim$choices_cluster=="ZAMBA_I_AS_Malanga"] <- "privatepharmacy"
+# five observations assigned private clinic in Vunda Nsole, while there is only a public health centre in that village
+patient_kim$providertype[patient_kim$providertype=="privateclinic"&patient_kim$choices_cluster=="VUNDA_NSOLE_AS_Vunda_Nsole"] <- "healthcentre_publique"
+# six observations assigned private clinic in Nkula, while there is none, but there is a public health centre and a private pharmacy in that village. Since 5 out of 6 had a malaria RDT done, must have been at the health centre
+patient_kim$providertype[patient_kim$providertype=="privateclinic"&patient_kim$choices_cluster=="NKULA_AS_Viaza"] <- "healthcentre_publique"
+# two observations assigned private clinic in Mpete, while there is none, but there is a public health centre. Both had a malaria RDT done
+patient_kim$providertype[patient_kim$providertype=="privateclinic"&patient_kim$choices_cluster=="MPETE_NKONDO_AS_Kiasunga"] <- "healthcentre_publique"
+# two observations assigned private clinic in Malanga, while there is none, but there is a public health centre and a pharmacy. One had a malaria RDT done
+patient_kim$providertype[patient_kim$providertype=="privateclinic"&patient_kim$choices_cluster=="MALANGA_AS_Malanga"] <- "healthcentre_publique"
+# one observations assigned private clinic in Lukengezi, while there is none, but there is a public health centre and a pharmacy. Had several tests done
+patient_kim$providertype[patient_kim$providertype=="privateclinic"&patient_kim$choices_cluster=="LUKENGEZI_ET_POSTE_AS_CECO"] <- "healthcentre_publique"
+# four observations assigned private pharmacy in Lukengezi, checked, and seem indeed pharmacy visits
 
 # add value to type of dispensor
 patient_kim$another_disp <- tolower(patient_kim$another_disp)
@@ -340,11 +354,22 @@ watchkim$antibiotic[is.na(watchkim$antibiotic)] <- 0
 table(watchkim$watch, useNA = "always")
 table(watchkim$antibiotic, useNA = "always")
 
+# remove two pilot clusters (we selected 24 before baseline, to retain 22 which had sufficient patient populations)
+table(watchkim$choices_cluster, watchkim$round)
+
 # consider healthcare providers as sampling unit, regardless of cluster villages (since all healthcare provieders in those villages included)
-watchkim$cluster <- paste(watchkim$choices_cluster, "-", watchkim$providertype, "-", watchkim$providernr) # 128 providers
+watchkim$cluster <- paste(watchkim$choices_cluster, "-", watchkim$providertype, "-", watchkim$providernr) 
+table(watchkim$cluster, useNA = "always")
+length(unique(watchkim$cluster)) # 126 providers
+
+# many such clusters have just one record, which is not possible, and probably due to the providernr 
+watchkim$cluster_villageprovider <- paste(watchkim$choices_cluster, "-", watchkim$providertype) 
+watchkim$cluster_villageprovider <- as.factor(watchkim$cluster_villageprovider)
+table(watchkim$cluster_villageprovider, useNA = "always")
+
 
 # anonymize the provider clusters to prevent identification of providers
-watchkim$clusterID <- sapply(watchkim$cluster, function(clusterID) {
+watchkim$clusterID <- sapply(watchkim$cluster_villageprovider, function(clusterID) {
   return(substring(digest(as.character(clusterID), algo = "crc32"), 1, 5))})
 
 # anonymize the provider clusters to prevent identification of providers and remove identifying info in the overall db
@@ -598,15 +623,30 @@ watchnan$antibiotic[is.na(watchnan$antibiotic)] <- 0
 table(watchnan$watch, useNA = "always")
 table(watchnan$antibiotic, useNA = "always")
 
-# consider healthcare providers as sampling unit, regardless of cluster villages (since all healthcare provieders in those villages included)
+# consider healthcare providers as sampling unit, regardless of cluster villages (since all healthcare providers in those villages included)
 watchnan$cluster <- paste(watchnan$village.cluster, "-", watchnan$providertype, "-", watchnan$providernr) # 128 providers
 watchnan$cluster <- as.factor(watchnan$cluster)
+# many such clusters have just one record, which is not possible, and probably due to the providernr 
+watchnan$cluster_villageprovider <- paste(watchnan$village.cluster, "-", watchnan$providertype) # 128 providers
+watchnan$cluster_villageprovider <- as.factor(watchnan$cluster_villageprovider)
+
+# remove observations at providers that do not exist in the list of providers at baseline: no healthcentre in Balogho, Kalwaka, Boulpon, no private pharmacy in Boulpon
+# remove when less than 10 observations from one provider, since due to poststratification weighing: informal provider in Gouloure
+watchnan <- watchnan %>%
+  filter(!cluster_villageprovider %in% c("BAL - healthcentre_publique", 
+                                    "BOU - healthcentre_publique", 
+                                    "BOU - privatepharmacy", 
+                                    "KAL - healthcentre_publique",
+                                    "GOU - informalvendor"))
+
+table(watchnan$cluster_villageprovider)
 
 # anonymize the provider clusters to prevent identification of providers
-watchnan$clusterID <- sapply(watchnan$cluster, function(clusterID) {
+watchnan$clusterID <- sapply(watchnan$cluster_villageprovider, function(clusterID) {
   return(substring(digest(as.character(clusterID), algo = "crc32"), 1, 5))})
+table(watchnan$clusterID)
 
-### append Kimpese and Nanoro (main) data ###
+#### 3. COMBINED KIMPESE AND NANORO DATA ####
 watchnan <- as.data.frame(watchnan)
 watchkim <- as.data.frame(watchkim)
 
@@ -628,71 +668,88 @@ watch <- rbind(watchnan, watchkim)
 watch <- watch %>%  mutate(pop_villagecluster = case_when(
     village.cluster == "BAL" ~ 1716,
     village.cluster == "BOL" ~ 6829,
-    village.cluster == "BOU" ~ 3658,
-    village.cluster == "CELLULE_MASAMUNA_AS_CBCO" ~ NA,
-    village.cluster == "CELLULE_MBUKA3_AS_Yanga_Dia_Songa" ~ NA,
-    village.cluster == "DAC" ~ 1448,
-    village.cluster == "GOU" ~ 2840,
+    village.cluster == "BOU" ~ 3777,
+    village.cluster == "CELLULE_MASAMUNA_AS_CBCO" ~ 4822,
+    village.cluster == "CELLULE_MBUKA3_AS_Yanga_Dia_Songa" ~ 4850,
+    village.cluster == "DAC" ~ 1588,
+    village.cluster == "GOU" ~ 2781,
     village.cluster == "KAL" ~ 2202,
     village.cluster == "KIANDU_AS_Viaza" ~ 420,
     village.cluster == "KIASUNGUA_AS_Kisaunga" ~ 2200,
     village.cluster == "KILUEKA_AS_Kilueka" ~ 630,
-    village.cluster == "KIMAKU_AS_Viaza" ~ NA,
-    village.cluster == "KITOBOLA_AS_Kilueka" ~ 5772, # seems a lot, considering how small the village is
-    village.cluster == "KOK" ~ 1440,
+    village.cluster == "KIMAKU_AS_Viaza" ~ 286,
+    village.cluster == "KITOBOLA_AS_Kilueka" ~ 572, # excel file had 5772 but I suspect a typo, considering how small the village is
+    village.cluster == "KOK" ~ 1446,
     village.cluster == "KOU" ~ 4270,
     village.cluster == "LAL" ~ 2712,
     village.cluster == "LUKENGEZI_ET_POSTE_AS_CECO" ~ 1300,
     village.cluster == "MALANGA_AS_Malanga" ~ 1740,
     village.cluster == "MBANZA_NDAMBA_AS_Kilueka" ~ 477,
-    village.cluster == "MONT_FLEURY_AS_Kimbanguiste" ~ 541,
-    village.cluster == "MPETE_NKONDO_AS_Kiasunga" ~ NA,
-    village.cluster == "NAN" ~ 7542,
-    village.cluster == "NAZ" ~ 5293,
+    village.cluster == "MONT_FLEURY_AS_Kimbanguiste" ~ 7820,
+    village.cluster == "MPETE_NKONDO_AS_Kiasunga" ~ 127,
+    village.cluster == "NAN" ~ 7949,
+    village.cluster == "NAZ" ~ 5297,
     village.cluster == "NGOMBE1_AS_Vunda_Nsole" ~ 660,
     village.cluster == "NKULA_AS_Viaza" ~ 340,
-    village.cluster == "PEL" ~ NA,
-    village.cluster == "POE" ~ 2304,
-    village.cluster == "POI" ~ 4580,
-    village.cluster == "Q2_(AS_CBCO)" ~ NA,
+    village.cluster == "PEL" ~ 4764,
+    village.cluster == "POE" ~ 4752,
+    village.cluster == "POI" ~ 2437,
+    village.cluster == "Q2_(AS_CBCO)" ~ 5435,
     village.cluster == "Q2_AS_CECO" ~ 2198,
-    village.cluster == "Q3_AS_Kimbanguiste" ~ NA,
-    village.cluster == "Q3_AS_Yanga_Dia_Songa" ~ NA,
-    village.cluster == "RAK" ~ 2177,
+    village.cluster == "Q3_AS_Kimbanguiste" ~ 11459,
+    village.cluster == "Q3_AS_Yanga_Dia_Songa" ~ 6846,
+    village.cluster == "RAK" ~ 2206,
     village.cluster == "SANZIKUA_AS_Vunda_Nsole" ~ 874,
-    village.cluster == "SEG" ~ 3942,
+    village.cluster == "SEG" ~ 3870,
     village.cluster == "SIG" ~ 3010,
-    village.cluster == "SOA" ~ 2376,
-    village.cluster == "SOU" ~ 5334,
-    village.cluster == "SOW" ~ 7541,
+    village.cluster == "SOA" ~ 2341,
+    village.cluster == "SOU" ~ 5322,
+    village.cluster == "SOW" ~ 7626,
     village.cluster == "VIAZA_AS_Viaza" ~ 582,
     village.cluster == "VUNDA_NSOLE_AS_Vunda_Nsole" ~ 686,
     village.cluster == "WENE_AS_Kilueka" ~ 600,
     village.cluster == "ZAMBA_I_AS_Malanga" ~ 620,
     TRUE ~ NA ))
 table(watch$pop_villagecluster, useNA = "always") 
-watch$pop_villagecluster[is.na(watch$pop_villagecluster)] <- 2000 # if pop is missing (NEED TO UPDATE) then replace with 2000
 
 # add monthly healthcare use frequecy per 1000 inhabitants, by type of provider
 # from 2019 HCU survey, Kisantu & Kimpese combined (b/c Kimpese didn't have peri-urban areas included then)
-watch$hcu[watch$site=="Kimpese" & watch$providertype=="healthcentre_publique"] <- 25.5
-watch$hcu[watch$site=="Kimpese" & watch$providertype=="privateclinic"] <- 31.0
-watch$hcu[watch$site=="Kimpese" & watch$providertype=="privatepharmacy"] <- 17.6
-# from 2022-23 HCU part of the CABU-EICO household survey 
-watch$hcu[watch$site=="Nanoro" & watch$providertype=="healthcentre_publique"] <- 22.20
-watch$hcu[watch$site=="Nanoro" & watch$providertype=="privateclinic"] <- NA
-watch$hcu[watch$site=="Nanoro" & watch$providertype=="privatepharmacy"] <- 1.67
-watch$hcu[watch$site=="Nanoro" & watch$providertype=="informalvendor"] <- 4.34
+watch$hcu_cabu1[watch$site=="Kimpese" & watch$providertype=="healthcentre_publique"] <- 25.5
+watch$hcu_cabu1[watch$site=="Kimpese" & watch$providertype=="privateclinic"] <- 31.0
+watch$hcu_cabu1[watch$site=="Kimpese" & watch$providertype=="privatepharmacy"] <- 17.6
+# from 2022-23 hcu_cabu1 part of the CABU-EICO household survey 
+watch$hcu_cabu1[watch$site=="Nanoro" & watch$providertype=="healthcentre_publique"] <- 22.20
+watch$hcu_cabu1[watch$site=="Nanoro" & watch$providertype=="privateclinic"] <- NA
+watch$hcu_cabu1[watch$site=="Nanoro" & watch$providertype=="privatepharmacy"] <- 1.67
+watch$hcu_cabu1[watch$site=="Nanoro" & watch$providertype=="informalvendor"] <- 4.34
+table(watch$providertype, watch$hcu_cabu1, useNA = "always")
+
+# from 2022-23 CABU-EICO HCU survey - Supplementary table 1 in manuscript
+watch$hcu[watch$site=="Kimpese" & watch$providertype=="healthcentre_publique"] <- 62.6 # still need to replace private clinics by public health centres
+watch$hcu[watch$site=="Kimpese" & watch$providertype=="privatepharmacy"] <- 26.4
+watch$hcu[watch$site=="Nanoro" & watch$providertype=="healthcentre_publique"] <- 26.3
+watch$hcu[watch$site=="Nanoro" & watch$providertype=="privatepharmacy"] <- 2.4
+watch$hcu[watch$site=="Nanoro" & watch$providertype=="informalvendor"] <- 5.4
 table(watch$hcu, useNA = "always")
 
+# group private clinics and public health centres together, since they serve the same purpose and the 2023 Kimpese HCU survey does not distinguish both
+watch$providertype_publicprivateclinicscombined <- watch$providertype
+watch$providertype_publicprivateclinicscombined[watch$providertype=="privateclinic"] <- "healthcentre"
+watch$providertype_publicprivateclinicscombined[watch$providertype=="healthcentre_publique"] <- "healthcentre"
+
+# alternatively, assign the healthcare utilisation rate to private clinics and public health centres based on their relative share of healthcare utilisation in the CABU study in 2019-20
+watch$hcu[watch$site=="Kimpese" & watch$providertype=="healthcentre_publique"] <- 62.6*(25.5/(25.5+31.0))
+watch$hcu[watch$site=="Kimpese" & watch$providertype=="privateclinic"] <- 62.6*(31.0/(25.5+31.0))
+
 # the number of patients expected from that provider in each village_cluster: HCU * population of the village cluster
-watch$pop_patients <- watch$hcu*watch$pop_villagecluster
+watch$pop_patients <- watch$hcu*watch$pop_villagecluster/1000
 table(watch$pop_patients, useNA = "always")
 
 # exclude animal use, chronic patients, no illness, to keep just acute illness
 watch_acute <- watch %>% filter(illness=="yes_acute_illness")
 
 # add a post stratification weight of each survey
+# population by site
 pop_by_site <- watch %>%
   group_by(site, village.cluster) %>%
   summarise(pop_cluster = mean(pop_villagecluster)) %>%
@@ -700,22 +757,49 @@ pop_by_site <- watch %>%
   summarise(pop_site = sum(pop_cluster))
 pop_by_site
 
+# keeping all different provider types
 nsurveys_by_providertype_by_site <- watch_acute %>%
   group_by(site, providertype, intervention, round) %>%
-  summarise(n_surveys = n(), hcu = mean(hcu))
+  summarise(n_surveys_site = n(), hcu = mean(hcu))
 nsurveys_by_providertype_by_site
 
 poststratificationweight <- merge(nsurveys_by_providertype_by_site, pop_by_site, by = "site")
-poststratificationweight$poststratweight <- (poststratificationweight$pop_site*poststratificationweight$hcu)/poststratificationweight$n_surveys
+poststratificationweight$poststratweight <- (poststratificationweight$pop_site*poststratificationweight$hcu)/poststratificationweight$n_surveys_site
 
-watch_acute <- merge(watch_acute, poststratificationweight, by = c("site", "providertype", "intervention", "round"))
+watch_acute <- merge(watch_acute, poststratificationweight, by = c("site", "providertype", "intervention", "round", "hcu"))
+
+# using the combined providertype, combining private clinics and health centres, using the updated 2023 healthcare utilisation rates
+# nsurveys_by_providertype_by_site_combinedpublicprivateclinics <- watch_acute %>%
+#   group_by(site, providertype_publicprivateclinicscombined, intervention, round) %>%
+#   summarise(n_surveys_combinedpublicprivateclinics = n(), hcu = mean(hcu))
+# nsurveys_by_providertype_by_site_combinedpublicprivateclinics
+# 
+# poststratificationweight <- merge(nsurveys_by_providertype_by_site_combinedpublicprivateclinics, pop_by_site, by = "site")
+# poststratificationweight$poststratweight_combinedpublicprivateclinics <- (poststratificationweight$pop_site*poststratificationweight$hcu)/poststratificationweight$n_surveys_combinedpublicprivateclinics
+# 
+# watch_acute <- merge(watch_acute, poststratificationweight, by = c("site", "pop_site", "providertype_publicprivateclinicscombined", "intervention", "round", "hcu"))
+
+# add a variable with the number of surveys in the cluster
+nsurveyscluster <- watch_acute %>% 
+  group_by(clusterID, round) %>%
+  summarize(n_surveys_cluster = n())
+watch_acute <- merge(watch_acute, nsurveyscluster, by = c("clusterID","round"))
+
+# filter out all clusters with less than 20 surveys
+watch_acute <- watch_acute %>% filter(n_surveys_cluster>19)
 
 # reorganize data for a Poisson with offset model so there is one line per provider/clusterID, calculate 
 # number of patients sampled from each provider, and sampling weight (population size/sample size)
 watch_acute_offset <- watch_acute %>% 
   group_by(clusterID, pop_patients, village.cluster, pop_villagecluster, hcu, intervention, round, providertype, site) %>%
-  summarise(n_surveys = n(), n_antibiotic = sum(antibiotic), n_watch = sum(watch), weight = mean(pop_patients)/n())
+  summarise(n_surveys = n(), n_antibiotic = sum(antibiotic), n_watch = sum(watch), pop_patients = mean(pop_patients), weight = mean(pop_patients)/n())
 head(watch_acute_offset)
+
+# watch_acute_offset_combinedpublicprivateclinics <- watch_acute %>% 
+#   group_by(clusterID, pop_patients, village.cluster, pop_villagecluster, hcu, intervention, round, providertype_publicprivateclinicscombined, site) %>%
+#   summarise(n_surveys = n(), n_antibiotic = sum(antibiotic), n_watch = sum(watch), weight = mean(pop_patients)/n())
+# head(watch_acute_offset_combinedpublicprivateclinics)
+
 # export dataframe with one observation per patient and the aggregated dataframe by provider
 write.csv(watch_acute, "watch_acute.csv")
 write.csv(watch_acute_offset, "watch_acute_offset.csv")
@@ -725,9 +809,11 @@ watch_acute$intervention <- as.factor(watch_acute$intervention)
 watch_acute$agegroup <- factor(watch_acute$agegroup, levels = c("0-4 yr", "5-17 yr", "18-64 yr", "65+ yr"))
 watch_acute$illness <- factor(watch_acute$illness, levels = c("yes_acute_illness", "yes_chronic", "no_noillness", "no_animalhealth"))
 watch_acute$providertype <- factor(watch_acute$providertype, levels = c("healthcentre_publique", "privateclinic", "privatepharmacy", "informalvendor"))
+watch_acute$providertype_publicprivateclinicscombined <- factor(watch_acute$providertype_publicprivateclinicscombined, levels = c("healthcentre", "privatepharmacy", "informalvendor"))
 
-#### 3. DESCRIPTION PARTICIPANTS ####
+#### 4. DESCRIPTION PARTICIPANTS ####
 # n surveys
+table(watch$round, useNA = "always")
 table(watch$round, watch$site, useNA = "always")
 
 # providers Kimpese
@@ -805,7 +891,7 @@ table1 <- table1 %>% select("characteristic", "n_Kimpese_control","percent_Kimpe
 # save table
 write.table(table1, "table1.txt")
 
-#### 4. PREVALENCE WATCH ANTIBIOTIC USE ####
+#### 5. PREVALENCE WATCH ANTIBIOTIC USE ####
 # 4.1 crude prevalence by provider type, by intervention/control group, by site, and pre- vs. post intervention
 # watch
 summary_watchcounts <- watch_acute %>%
@@ -826,6 +912,7 @@ summary_watchcounts <- summary_watchcounts %>% select(c("providertype","round","
                                 "combined_counts_Kimpese_intervention", "percentage_watch_1_Kimpese_intervention", "combined_counts_Nanoro_control",
                                 "percentage_watch_1_Nanoro_control", "combined_counts_Nanoro_intervention","percentage_watch_1_Nanoro_intervention" )) 
 write.table(summary_watchcounts, "summary_watchcounts.txt")
+write_xlsx(summary_watchcounts, "summary_watchcounts.xlsx")
 
 # any antibiotic
 summary_antibioticcounts <- watch_acute %>%
@@ -845,7 +932,7 @@ summary_antibioticcounts <- watch_acute %>%
 summary_antibioticcounts <- summary_antibioticcounts %>% select(c("providertype","round","combined_counts_Kimpese_control","percentage_antibiotic_Kimpese_control",
                                                         "combined_counts_Kimpese_intervention", "percentage_antibiotic_Kimpese_intervention", "combined_counts_Nanoro_control",
                                                         "percentage_antibiotic_Nanoro_control", "combined_counts_Nanoro_intervention","percentage_antibiotic_Nanoro_intervention" )) 
-write.table(summary_antibioticcounts, "summary_antibioticcounts.txt")
+write_xlsx(summary_antibioticcounts, "summary_antibioticcounts.xlsx")
 
 # 4.2 two-stage cluster sampling-corrected prevalence by group
 # WATCH
@@ -914,6 +1001,15 @@ poststratweightedABprop$upper_ci <- round((poststratweightedABprop$antibiotic + 
 poststratweightedABprop$pct <- round(poststratweightedABprop$antibiotic*100,1)
 poststratweightedABprop <- as.data.frame(poststratweightedABprop) 
 poststratweightedABprop
+# with WEIGHING AND OFFSET - using the offset database as used to estimate PR
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset, weights = ~weight)
+surveydesign <- update(surveydesign, prevalence = n_antibiotic / n_surveys)
+prevalence_estimates <- svyby(~ prevalence,  ~ round + intervention,  # Grouping variables
+                              design = surveydesign,
+                              svymean,  # Function to calculate means
+                              vartype = c("ci")  # Include confidence intervals
+)
+prevalence_estimates
 
 # BY PROVIDERTYPE, by site, by round (baseline/post) 
 surveydesign <- svydesign(id = ~clusterID, data = watch_acute, nest = TRUE)
@@ -939,51 +1035,110 @@ antibioticclusterprop_wide <- antibioticclusterprop_wide[order(antibioticcluster
 antibioticclusterprop_wide <- antibioticclusterprop_wide %>% select(c("providertype","round","pct_Kimpese_control","ci_Kimpese_control",
                                                             "pct_Kimpese_intervention", "ci_Kimpese_intervention", "pct_Nanoro_control",
                                                             "ci_Nanoro_control", "pct_Nanoro_intervention", "ci_Nanoro_intervention" )) 
+antibioticclusterprop_wide
 # save table
 write.table(antibioticclusterprop_wide, "antibioticclusterprop_wide.txt")
 
-#### 5. PREVALENCE RATIO WATCH/ANY ANTIBIOTIC USE INTERVENTION VS CONTROL ####
-# model structure: ABU ~ Time + Intervention + Time*Intervention + confounders?? + clusters/providers(clusterID)
-# for now (survey in Nanoro less than 50% includions, in Kimpese nearly complete) exclude Nanoro
-watch_acute_offset_kim <- watch_acute_offset %>% filter(site=="Kimpese")
-
-# 5.1 neg binomial regression with offset - model retained for analysis
-# 5.1.1 WATCH AB
-# define survey design
-surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset, 
-                          # weights = ~weight # for now no weighing because surveys still ongoing in some clusters, so that the few surveys there get too much weight
+# with WEIGHING for EVERY PROVIDER AND OFFSET - using the same "offset database"
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset, weights = ~weight)
+surveydesign <- update(surveydesign, prevalence = n_antibiotic / n_surveys)
+prevalence_estimates <- svyby(~ prevalence,  ~ providertype + round + intervention,  # Grouping variables
+  design = surveydesign,
+  svymean,  # Function to calculate means
+  vartype = c("ci")  # Include confidence intervals
 )
-# fit model
-nb_model <- svyglm(n_watch ~ offset(log(pop_patients)) + round * intervention + providertype, #+ agegroup?  + site
-                              design = surveydesign, 
-                              family = quasipoisson)
-summary(nb_model)
+prevalence_estimates
+
+#### 6. PREVALENCE RATIO WATCH/ANY ANTIBIOTIC USE INTERVENTION VS CONTROL ####
+# model structure: ABU ~ Time + Intervention + Time*Intervention + confounders?? + clusters/providers(clusterID)
+# 5.1 neg binomial regression with offset - model retained for analysis
+# 5.1.1 WATCH AB 
+# define survey design - including weighting for cluster size (village population * provider-specific healthcare utilisation rate)
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset, weights = ~weight)
+# fit negative binomial model with survey weights (using glm.nb instead of svyglm because the svyglm does not allow for negative binomial regression)
+library(MASS)
+nb_model_watch <- glm.nb(
+  n_watch ~ offset(log(pop_patients)) + round * intervention + providertype, 
+  weights = surveydesign$weights,
+  data = watch_acute_offset
+)
+# what I initially used
+# nb_model_watch <- svyglm(n_watch ~ offset(log(pop_patients)) + round * intervention + providertype,
+#                               design = surveydesign, 
+#                               family = quasipoisson)
+# summary(nb_model_watch)
+
 # get the model coefficients
+coef <- coef(nb_model_watch)
+coeci <- confint(nb_model_watch)
+rr <- exp(coef)
+rr 
+ci_rr <- exp(coeci)
+ci_rr
+
+# define survey design - including weighting for cluster size (village population * provider-specific healthcare utilisation rate)
+surveydesign_noweighing <- svydesign(id = ~clusterID, data = watch_acute_offset)
+nb_model <- svyglm(n_watch ~ offset(log(pop_patients)) + round * intervention, 
+                   design = surveydesign_noweighing, 
+                   family = quasipoisson)
+summary(nb_model)
 coef <- coef(nb_model)
 coeci <- confint(nb_model)
 rr <- exp(coef)
-rr # see that it's an OR actually since it's log regression eventually
+rr 
 ci_rr <- exp(coeci)
 ci_rr
 
 # 5.1.2 ANY ANTIBIOTIC
-# define survey design
-surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset_kim, 
-                          # weights = ~weight # for now no weighing because surveys still ongoing in some clusters, so that the few surveys there get too much weight
+# with four types of providers in the model: public health centre, private clinic, over-the-counter at private pharmacy, informal vendor
+# define survey design - including weighting for cluster size (village population * provider-specific healthcare utilisation rate)
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset, weights = ~weight)
+# fit negative binomial model with survey weights (using glm.nb instead of svyglm because the svyglm does not allow for negative binomial regression)
+library(MASS)
+nb_model_anyAB <- glm.nb(
+  n_antibiotic ~ offset(log(pop_patients)) + round * intervention + providertype, 
+  weights = surveydesign$weights,
+  data = watch_acute_offset
 )
+# get the model coefficients
+coef <- coef(nb_model_anyAB)
+coeci <- confint(nb_model_anyAB)
+rr <- exp(coef)
+rr
+ci_rr <- exp(coeci)
+ci_rr
+
+# define survey design - without weighting -> every interviewed patient has the same weight
+surveydesign_noweighing <- svydesign(id = ~clusterID, data = watch_acute_offset)
 # fit model
-nb_model_anyAB <- svyglm(n_antibiotic ~ offset(log(pop_patients)) + round * intervention + providertype, #+ agegroup?  + site
-                   design = surveydesign, 
-                   family = poisson)
+nb_model_anyAB <- svyglm(n_antibiotic ~ offset(log(pop_patients)) + round * intervention + providertype, 
+                         design = surveydesign_noweighing, 
+                         family = quasipoisson)
 summary(nb_model_anyAB)
 # get the model coefficients
 coef <- coef(nb_model_anyAB)
 coeci <- confint(nb_model_anyAB)
 rr <- exp(coef)
-rr # see that it's an OR actually since it's log regression eventually
+rr
 ci_rr <- exp(coeci)
 ci_rr
 
+# with three types of providers in the model: health centre, over-the-counter at private pharmacy, informal vendor
+surveydesign_combinedpublicprivateclinics <- svydesign(id = ~clusterID, data = watch_acute_offset_combinedpublicprivateclinics, 
+                          # weights = ~weight # for now no weighing because surveys still ongoing in some clusters, so that the few surveys there get too much weight
+)
+# fit model
+nb_model_anyAB <- svyglm(n_antibiotic ~ offset(log(pop_patients)) + round * intervention + providertype_publicprivateclinicscombined, #+ agegroup?  + site
+                         design = surveydesign_combinedpublicprivateclinics, 
+                         family = poisson)
+summary(nb_model_anyAB)
+# get the model coefficients
+coef <- coef(nb_model_anyAB)
+coeci <- confint(nb_model_anyAB)
+rr <- exp(coef)
+rr 
+ci_rr <- exp(coeci)
+ci_rr
 
 # 5.2 log binomial regression using the survey package
 # WATCH
@@ -1041,3 +1196,68 @@ mixed_model_1_results
 mixed_model_option2 <- glmer(watch ~ round*intervention + site + clusterID + (1|providertype) ,
                      family = binomial(link = "logit"),
                      data = watch_acute)
+
+#### 7. FIGURE WITH PREVALENCE AND RR BY TYPE OF PROVIDER ####
+# relative ratio by provider
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset, weights = ~weight)
+# fit negative binomial model with survey weights (using glm.nb instead of svyglm because the svyglm does not allow for negative binomial regression)
+library(MASS)
+nb_model_subgroup <- glm.nb(
+  n_antibiotic ~ offset(log(pop_patients)) + round * intervention * providertype, 
+  weights = surveydesign$weights,
+  data = watch_acute_offset
+)
+coef_summary <- summary(nb_model_subgroup)$coefficients
+interaction_coefs <- coef_summary[grep("roundpost:intervention", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- exp(log_coefs)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+# table of results
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = rr,
+  CI_Lower = rr_ci_lower,
+  CI_Upper = rr_ci_upper
+)
+print(subgroup_effects, row.names = FALSE)
+
+# prevalence estimates by provider type 
+surveydesign <- update(surveydesign, prevalence = n_antibiotic / n_surveys)
+prevalence_estimates <- svyby(~ prevalence,  ~ providertype + round + intervention,  # Grouping variables
+                              design = surveydesign,
+                              svymean,  # Function to calculate means
+                              vartype = c("ci")  # Include confidence intervals
+)
+prevalence_estimates
+
+
+
+# subsetting by type of provider (below for healthcentre) gives the same result
+surveydesign_subsethealthcentre <- svydesign(id = ~clusterID, data = watch_acute_offset[watch_acute_offset$providertype=="healthcentre_publique",], weights = ~weight)
+# fit negative binomial model with survey weights (using glm.nb instead of svyglm because the svyglm does not allow for negative binomial regression)
+library(MASS)
+nb_model_subsethealthcentre <- glm.nb(
+  n_antibiotic ~ offset(log(pop_patients)) + round * intervention, 
+  weights = surveydesign_subsethealthcentre$weights,
+  data = watch_acute_offset[watch_acute_offset$providertype=="healthcentre_publique",]
+)
+# get the model coefficients
+coef <- coef(nb_model_subsethealthcentre)
+coeci <- confint(nb_model_subsethealthcentre)
+rr <- exp(coef)
+rr
+ci_rr <- exp(coeci)
+ci_rr
+
+# prevalence estimate 
+surveydesign_subsethealthcentre <- update(surveydesign_subsethealthcentre, prevalence = n_antibiotic / n_surveys)
+prevalence_estimates <- svyby(~ prevalence,  ~ providertype + round + intervention,  # Grouping variables
+                              design = surveydesign_subsethealthcentre,
+                              svymean,  # Function to calculate means
+                              vartype = c("ci")  # Include confidence intervals
+)
+prevalence_estimates
