@@ -4,7 +4,7 @@
 #####################################################
 
 # install/load packages
-pacman::p_load(readxl, writexl, lubridate, haven, MASS, tidyr, dplyr, digest, ggplot2, survey, srvyr, gtsummary, lme4, broom.mixed)
+pacman::p_load(readxl, writexl, lubridate, haven, MASS, tidyr, dplyr, digest, ggplot2, ggthemes, ggalluvial, survey, srvyr, gtsummary, lme4, broom.mixed)
 
 #### 1. IMPORT DATA KIMPESE #### 
 # 1.1 Kimpese baseline
@@ -115,15 +115,17 @@ patient_kim$clinpres[grepl("dermatose", patient_kim$diag_spec_other, ignore.case
 patient_kim$clinpres[grepl("carie dentaire|carrie|infection dentaire|periodontite chronique|periodontite sub aigue|phlegmon d'origine dentaire", patient_kim$diag_spec_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "dental"
 patient_kim$clinpres[grepl("grippe|syndrome grippal|sd grippal|syndrome paludo gripal", patient_kim$diag_spec_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "acute respiratory infection"
 patient_kim$clinpres[grepl("asthme|crise d'asthme", patient_kim$diag_spec_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "asthma/COPD"
-patient_kim$clinpres[grepl("appendic|gastrite|dyspeptiq|colique infantile", patient_kim$diag_spec_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "non-infectious gastro-intestinal"
+patient_kim$clinpres[grepl("appendic", patient_kim$diag_spec_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "appendicitis"
+patient_kim$clinpres[grepl("gastrite|dyspeptiq|colique infantile", patient_kim$diag_spec_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "unexplained gastro-intestinal"
 patient_kim$clinpres[grepl("hypotension artérielle et sd dyspeptique|hypotension artérielle, sd syspeptique|sd dyspeptique|sd dyspetique|syndrome dyspeptique|péritonite", 
-                           patient_kim$diag_spec_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "non-infectious gastro-intestinal"
+                           patient_kim$diag_spec_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "unexplained gastro-intestinal"
 patient_kim$clinpres[grepl("parasitos|amibias|verminose", patient_kim$diag_spec_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "parasitic infections"
 patient_kim$clinpres[grepl("cystit|urinair|urogénital", patient_kim$diag_spec_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "urinary tract infection"
 patient_kim$clinpres[grepl("information urogenitale|iu|iug|prostatite", patient_kim$diag_spec_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "urinary tract infection"
 patient_kim$clinpres[grepl("IST|annexite|infection sexuellement transmissibles|syphilis|trichomonas vaginal", patient_kim$diag_spec_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "sexually transmitted infection"
 patient_kim$clinpres[grepl("diabete|diabète|daiabete|hyperglycémie", patient_kim$diag_spec_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "diabetes"
 patient_kim$clinpres[grepl("conjonctivite|corps étranger dans l'oeil|conjoctivite|orgelet", patient_kim$diag_spec_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "eye condition"
+patient_kim$clinpres[grepl("fever", patient_kim$symptoms, ignore.case = TRUE)& grepl("syndrome infectieux|infection|sd infectieux|syndromes infectieux", patient_kim$diag_spec_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "unexplained fever"
 patient_kim$clinpres[grepl("syndrome infectieux|infection|rougeole|fièvre éruptives|sd infectieux|syndromes infectieux|encéphalite", patient_kim$diag_spec_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "other infections"
 patient_kim$clinpres[grepl("rhumastime|lombarthose|rhumatisme|arthrite rumathoide|varice|hémorroïdaire|sd syspeptique|stomatite|lymphome|algie de|anemie|arthrose|céphalees|anaphylactique|brûlures thermique|choc|circoncision mal faite|douleur gestionnaire|dysmenorrhee", 
                            patient_kim$diag_spec_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "other non infectious"
@@ -155,9 +157,11 @@ patient_kim$clinpres[grepl("dermatose", patient_kim$illness_other, ignore.case =
 patient_kim$clinpres[grepl("carie dentaire|carrie|infection dentaire|periodontite chronique|periodontite sub aigue|phlegmon d'origine dentaire|douleurs dentaire|douleur dentaire", patient_kim$illness_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "dental"
 patient_kim$clinpres[grepl("grippe|syndrome grippal|sd grippal|syndrome paludo gripal|rhume", patient_kim$illness_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "acute respiratory infection"
 patient_kim$clinpres[grepl("asthme|crise d'asthme", patient_kim$illness_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "asthma/COPD"
-patient_kim$clinpres[grepl("appendic|gastrite|dyspeptiq|colique infantile", patient_kim$illness_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "non-infectious gastro-intestinal"
+patient_kim$clinpres[patient_kim$illness_spec=="fever" & grepl("diarrhee", patient_kim$symptoms_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "gastroenteritis"
+patient_kim$clinpres[patient_kim$illness_spec=="fever" & grepl("diarrho", patient_kim$symptoms, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "gastroenteritis"
+patient_kim$clinpres[grepl("gastrite|dyspeptiq|colique infantile", patient_kim$illness_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "unexplained gastro-intestinal"
 patient_kim$clinpres[grepl("hypotension artérielle et sd dyspeptique|hypotension artérielle, sd syspeptique|sd dyspeptique|sd dyspetique|syndrome dyspeptique|péritonite", 
-                           patient_kim$illness_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "non-infectious gastro-intestinal"
+                           patient_kim$illness_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "unexplained gastro-intestinal"
 patient_kim$clinpres[grepl("parasitos|amibias|verminose", patient_kim$illness_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "parasitic infections"
 patient_kim$clinpres[grepl("cystit|urinair|urogénital", patient_kim$illness_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "urinary tract infection"
 patient_kim$clinpres[grepl("information urogenitale|iu|iug|prostatite", patient_kim$illness_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "urinary tract infection"
@@ -184,7 +188,7 @@ patient_kim$clinpres[grepl("hypotension arterielle|hypotension artérielle", pat
 patient_kim$clinpres[grepl("blessure|démangeaison|eruption cutanee|éruption cutanée|phlyctene|prurit|prurit généralisé|prurite generalise|tuméfaction douloureuse au niveau du quandrant inférieur de la fesse droite|staphylococcie cutanee", 
                            patient_kim$illness_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "skin/soft tissue infection"
 patient_kim$clinpres[grepl("bourdonnement abdominal|colique abdominale|diarrhée|douleur abdominal|douleur abdominale|douleurs abdominales|epigastralgie|hypogastralgie|inappetence|nausée|odynophagie|satiete precoce", 
-                           patient_kim$illness_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "non-infectious gastro-intestinal"
+                           patient_kim$illness_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "unexplained gastro-intestinal"
 patient_kim$clinpres[grepl("maux de gorge", patient_kim$illness_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "pharyngitis"
 patient_kim$clinpres[grepl("selle glaireux malodorant|selles liquides|vomissement|vomissements", patient_kim$illness_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "gastroenteritis"
 patient_kim$clinpres[grepl("dysurie|hematurie|hématurie|mictalgie|myctalgie|urine malodorante", patient_kim$illness_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "urinary tract infection"
@@ -203,8 +207,6 @@ patient_kim$clinpres[patient_kim$illness_spec=="skinproblem"& is.na(patient_kim$
 patient_kim$clinpres[patient_kim$illness_spec=="skinproblem"& is.na(patient_kim$clinpres) & grepl("tumefact|tuméfact|ERUPTIONS CUTANÉE PRURIGINEUSE|pustul", patient_kim$symptoms_other, ignore.case = TRUE)] <- "skin/soft tissue infection"
 patient_kim$clinpres[patient_kim$illness_spec=="skinproblem"& is.na(patient_kim$clinpres) & grepl("PRURITS GÉNITALES|Prurit pénien", patient_kim$symptoms_other, ignore.case = TRUE)] <- "sexually transmitted infection"
 patient_kim$clinpres[patient_kim$illness_spec=="fever" & grepl("mictal", patient_kim$symptoms_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "urinary tract infection"
-patient_kim$clinpres[patient_kim$illness_spec=="fever" & grepl("diarrhee", patient_kim$symptoms_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "gastroenteritis"
-patient_kim$clinpres[patient_kim$illness_spec=="fever" & grepl("diarrho", patient_kim$symptoms, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "gastroenteritis"
 patient_kim$clinpres[patient_kim$illness_spec=="fever" & grepl("wound", patient_kim$symptoms, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "skin/soft tissue infection"
 patient_kim$clinpres[patient_kim$illness_spec=="fever" & grepl("cough", patient_kim$symptoms, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "acute respiratory infection"
 patient_kim$clinpres[patient_kim$illness_spec=="fever" & grepl("ecoulementnasale", patient_kim$symptoms, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "acute respiratory infection"
@@ -212,13 +214,13 @@ patient_kim$clinpres[patient_kim$illness_spec=="fever" & grepl("mauxdegorge", pa
 patient_kim$clinpres[grepl("dentai", patient_kim$symptoms, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "dental"
 patient_kim$clinpres[grepl("dentai", patient_kim$symptoms_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "dental"
 patient_kim$clinpres[patient_kim$illness_spec=="nausea_vomiting" & grepl("diarrho", patient_kim$symptoms, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "gastroenteritis"
-patient_kim$clinpres[patient_kim$illness_spec=="fever" & grepl("rash", patient_kim$symptoms, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "other infections"
 patient_kim$clinpres[grepl("tumef", patient_kim$symptoms_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "skin/soft tissue infection"
 patient_kim$clinpres[grepl("plai", patient_kim$symptoms_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "skin/soft tissue infection"
 patient_kim$clinpres[grepl("diarrh", patient_kim$symptoms_other, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "gastroenteritis"
 
 # fever with or without symptoms that can not be linked to a specific clinical presentation
 patient_kim$clinpres[grepl("fever", patient_kim$symptoms, ignore.case = T) & is.na(patient_kim$clinpres)] <- "unexplained fever"
+patient_kim$clinpres[patient_kim$illness_spec=="fever" & grepl("rash", patient_kim$symptoms, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "unexplained fever"
 
 # check if still some not assigned and what symptoms these have
 table(patient_kim$illness_other[patient_kim$illness=="yes_acute_illness"&is.na(patient_kim$clinpres)], useNA = "always")
@@ -230,6 +232,7 @@ patient_kim$clinpres[grepl("unknown", patient_kim$quel_tait_le_diagnostic_final,
 
 table(patient_kim$clinpres[patient_kim$illness=="yes_acute_illness"], patient_kim$providertype[patient_kim$illness=="yes_acute_illness"], useNA = "always")
 clinpresdistribution <- as.data.frame(table(patient_kim$clinpres[patient_kim$illness=="yes_acute_illness"], patient_kim$providertype[patient_kim$illness=="yes_acute_illness"], useNA = "always"))
+clinpresdistribution
 write_xlsx(clinpresdistribution, "clinpresdistribution.xlsx")
 
 # group clinical presentations in broad categories
@@ -242,11 +245,10 @@ patient_kim$clinpres_broad[patient_kim$clinpres=="pharyngitis"] <- "acute respir
 patient_kim$clinpres_broad[patient_kim$clinpres=="cardiovascular condition"] <- "other"
 patient_kim$clinpres_broad[patient_kim$clinpres=="asthma/COPD"] <- "other"
 patient_kim$clinpres_broad[patient_kim$clinpres=="diabetes"] <- "other"
-patient_kim$clinpres_broad[patient_kim$clinpres=="other infections"] <- "non-bacterial infectious (viral rash, worms, amoebae)"
-patient_kim$clinpres_broad[patient_kim$clinpres=="scabies"] <- "non-bacterial infectious (viral rash, worms, amoebae)"
-patient_kim$clinpres_broad[patient_kim$clinpres=="parasitic infections"] <- "non-bacterial infectious (viral rash, worms, amoebae)"
+patient_kim$clinpres_broad[patient_kim$clinpres=="other infections"] <- "non-bacterial infectious (viral outbreak, scabies, worms, amoebae)"
+patient_kim$clinpres_broad[patient_kim$clinpres=="scabies"] <- "non-bacterial infectious (viral outbreak, scabies, worms, amoebae)"
+patient_kim$clinpres_broad[patient_kim$clinpres=="parasitic infections"] <- "non-bacterial infectious (viral outbreak, scabies, worms, amoebae)"
 patient_kim$clinpres_broad[patient_kim$clinpres=="post surgery"] <- "other"
-patient_kim$clinpres_broad[patient_kim$clinpres=="non-infectious gastro-intestinal"] <- "other"
 patient_kim$clinpres_broad[patient_kim$clinpres=="other non infectious"] <- "other"
 patient_kim$clinpres_broad[patient_kim$clinpres=="eye condition"] <- "other"
 patient_kim$clinpres_broad[patient_kim$clinpres=="typhoid"] <- "typhoid or sepsis"
@@ -254,6 +256,7 @@ patient_kim$clinpres_broad[patient_kim$clinpres=="sepsis"] <- "typhoid or sepsis
 patient_kim$clinpres_broad[is.na(patient_kim$clinpres)] <- "other"
 
 table(patient_kim$clinpres_broad, patient_kim$intervention, useNA = "always")
+table(patient_kim$clinpres[patient_kim$clinpres_broad=="other"])
 
 # import antibiotic data (a loop for individual antibiotics recorded can be repeated for the same patient) 
 ab_kim_bl <- read_excel("db/patientsurvey/Questionnaire_patient_CABU-RDC_-_all_versions_-_English_-_2024-01-16-12-52-23.xlsx", 
@@ -760,10 +763,142 @@ patient_nan$round[patient_nan$surveydate>"2023-09-30"] <- "post"
 table(patient_nan$round, useNA = "always")
 colnames(patient_nan)
 # remove all antimalarial variables, to simplify the data
-patient_nan_noab <- patient_nan %>% select("meta.instanceID", "providertype", "providernr", "round", "intervention", "ageyears", "agegroup", "sex", "educationlevel", "illness", c(names(patient_nan)[26:45], "surveydate", "village.cluster"))
+patient_nan <- patient_nan %>% select("meta.instanceID", "providertype", "providernr", "round", "intervention", "ageyears", "agegroup", "sex", "educationlevel", "illness", c(names(patient_nan)[26:45], "surveydate", "village.cluster"))
+
+
+# add a variable with a single clinical presentation that is based on the diagnosis given with the highest likelihood to result in antibiotic treatment
+# clinical presentations that are likely to result in antibiotic use are assigned first
+# recode the clinical presentations entered (recorded during 940 surveys, based on consultation.q24_diagnosticSpecif)
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="4"] <- "pharyngitis"
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="8"] <- "gastroenteritis" # never entered/reported as diagnosis
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="1"] <- "malaria"
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="9"] <- "typhoid or sepsis"
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="1 9"] <- "typhoid or sepsis"
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="11"] <- "urinary tract infection"
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="7"] <- "pneumonia"
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="3 7"] <- "pneumonia"
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="6"] <- "acute respiratory infection"
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="2"] <- "acute respiratory infection"
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="10"] <- "non-bacterial infectious (viral outbreak, scabies, worms, amoebae)"
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="1 12"] <- "peptic ulcer" # is a single case with no symptoms recorded and indeterminate malaria test result
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="12"] <- "peptic ulcer" 
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="1 11"] <- "urinary tract infection"
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="1 2"] <- "acute respiratory infection"
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="2 1"] <- "acute respiratory infection"
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="3"] <- "pharyngitis" 
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="1 4"] <- "pharyngitis" # 'angine' not sure whether to label as RTI or as pharyngitis
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="4"] <- "pharyngitis" # 'angine' not sure whether to label as RTI or as pharyngitis
+patient_nan$clinpres[patient_nan$consultation.q25_maladieDiagnostic=="4 2"] <- "pharyngitis" # 'angine' not sure whether to label as RTI or as pharyngitis
+# when no diagnosis reported by patient, get it from clinical signs and symptoms reported. malaria only when positive malaria test and no other symptoms that could indicate another (co)infection
+patient_nan$clinpres[grepl("15", patient_nan$consultation.q19_signeClinique) & grepl("1 ", patient_nan$consultation.q19_signeClinique) & grepl("11", patient_nan$consultation.q19_signeClinique)==F & is.na(patient_nan$clinpres)] <- "skin/soft tissue infection" # add fever (code 1) but make sure 11 (constipation) isn't selected instead
+patient_nan$clinpres[grepl("9", patient_nan$consultation.q19_signeClinique) & is.na(patient_nan$clinpres)] <- "gastroenteritis" # still need to exclude if malaria test is positive
+patient_nan$consultation.q19_AutresigneClinique <- tolower(patient_nan$consultation.q19_AutresigneClinique)
+patient_nan$clinpres[grepl("dent", patient_nan$consultation.q19_AutresigneClinique) & is.na(patient_nan$clinpres)] <- "dental" 
+patient_nan$clinpres[grepl("ulcere", patient_nan$consultation.q19_AutresigneClinique) & is.na(patient_nan$clinpres) ] <- "skin/soft tissue infection" 
+patient_nan$clinpres[grepl("furoncle", patient_nan$consultation.q19_AutresigneClinique) & is.na(patient_nan$clinpres) ] <- "skin/soft tissue infection" 
+patient_nan$clinpres[grepl("urinaire", patient_nan$consultation.q19_AutresigneClinique) & is.na(patient_nan$clinpres)] <- "urinary tract infection" 
+patient_nan$clinpres[grepl("2", patient_nan$consultation.q19_signeClinique) & grepl("12", patient_nan$consultation.q19_signeClinique)==F & is.na(patient_nan$clinpres)] <- "acute respiratory infection" # "rhume" (value 2) but avoidng confusion with value 12
+patient_nan$clinpres[grepl("2 ", patient_nan$consultation.q19_signeClinique) & grepl("12", patient_nan$consultation.q19_signeClinique) & grepl("13", patient_nan$consultation.q19_signeClinique)==F & is.na(patient_nan$clinpres)] <- "acute respiratory infection" # "rhume" (value 2) together with 12 (fatigue), avoiding 12 along
+patient_nan$clinpres[grepl("3", patient_nan$consultation.q19_signeClinique) & grepl("13", patient_nan$consultation.q19_signeClinique)==F & is.na(patient_nan$clinpres)] <- "acute respiratory infection" # "toux" (value 3) but avoidng confusion with value 13
+patient_nan$clinpres[grepl("6", patient_nan$consultation.q19_signeClinique) & is.na(patient_nan$clinpres)] <- "unexplained gastro-intestinal" # "toux" (value 3) but avoidng confusion with value 13
+patient_nan$clinpres[grepl("10", patient_nan$consultation.q19_signeClinique) & is.na(patient_nan$clinpres)] <- "unexplained gastro-intestinal" # "toux" (value 3) but avoidng confusion with value 13
+patient_nan$clinpres[grepl("11", patient_nan$consultation.q19_signeClinique) & is.na(patient_nan$clinpres)] <- "unexplained gastro-intestinal" # "toux" (value 3) but avoidng confusion with value 13
+patient_nan$clinpres[grepl("1 ", patient_nan$consultation.q19_signeClinique) & grepl("11", patient_nan$consultation.q19_signeClinique)==F & patient_nan$consultation.q22_resultaTestDiagnostic!=1 & is.na(patient_nan$clinpres)] <- "unexplained fever" # excluding cases with positive malaria diagnostic test
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1" & patient_nan$consultation.q22_resultaTestDiagnostic!=1 & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1" & patient_nan$consultation.q22_resultaTestDiagnostic==1 & is.na(patient_nan$clinpres)] <- "malaria" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 12" & patient_nan$consultation.q22_resultaTestDiagnostic==1 & is.na(patient_nan$clinpres)] <- "malaria" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 12 13" & patient_nan$consultation.q22_resultaTestDiagnostic==1 & is.na(patient_nan$clinpres)] <- "malaria" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 13" & patient_nan$consultation.q22_resultaTestDiagnostic==1 & is.na(patient_nan$clinpres)] <- "malaria" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 12" & patient_nan$consultation.q22_resultaTestDiagnostic!=1 & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 12 13" & patient_nan$consultation.q22_resultaTestDiagnostic!=1 & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 13" & patient_nan$consultation.q22_resultaTestDiagnostic!=1 & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1" & is.na(patient_nan$consultation.q22_resultaTestDiagnostic) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 13" & is.na(patient_nan$consultation.q22_resultaTestDiagnostic) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 12" & is.na(patient_nan$consultation.q22_resultaTestDiagnostic) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 12 13" & is.na(patient_nan$consultation.q22_resultaTestDiagnostic) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 13 7" & is.na(patient_nan$consultation.q22_resultaTestDiagnostic) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 13 7" & is.na(patient_nan$consultation.q22_resultaTestDiagnostic) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 14" & is.na(patient_nan$consultation.q22_resultaTestDiagnostic) & is.na(patient_nan$clinpres)] <- "skin/soft tissue infection" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 5" & is.na(patient_nan$clinpres)] <- "acute otitis media"  
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="5 1" & is.na(patient_nan$clinpres)] <- "acute otitis media"  
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="5" & is.na(patient_nan$clinpres)] <- "acute otitis media" # no fever, to check! 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="4 5" & is.na(patient_nan$clinpres)] <- "acute otitis media" # no fever, to check! 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="5 4" & is.na(patient_nan$clinpres)] <- "acute otitis media" # no fever, to check! 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 2 7 12 13" & is.na(patient_nan$clinpres)] <- "acute respiratory infection"
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 3 13" & is.na(patient_nan$clinpres)] <- "acute respiratory infection"
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 3 4 8 13" & is.na(patient_nan$clinpres)] <- "acute respiratory infection"
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 3 7 13" & is.na(patient_nan$clinpres)] <- "acute respiratory infection"
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 3 7 8 13" & is.na(patient_nan$clinpres)] <- "acute respiratory infection"
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="2 13 12" & is.na(patient_nan$clinpres)] <- "acute respiratory infection"
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="3 7 12 13" & is.na(patient_nan$clinpres)] <- "acute respiratory infection"
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="8 13 3" & is.na(patient_nan$clinpres)] <- "acute respiratory infection"
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 4" & is.na(patient_nan$clinpres)] <- "pharyngitis"
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="4" & is.na(patient_nan$clinpres)] <- "pharyngitis"
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="4 1" & is.na(patient_nan$clinpres)] <- "pharyngitis"
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="4 12" & is.na(patient_nan$clinpres)] <- "pharyngitis"
+patient_nan$clinpres[grepl("1 7", patient_nan$consultation.q19_signeClinique) & patient_nan$consultation.q22_resultaTestDiagnostic==1 & is.na(patient_nan$clinpres)] <- "malaria" 
+patient_nan$clinpres[grepl("1 7", patient_nan$consultation.q19_signeClinique) & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic)) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[grepl("1 8", patient_nan$consultation.q19_signeClinique) & patient_nan$consultation.q22_resultaTestDiagnostic==1 & is.na(patient_nan$clinpres)] <- "malaria" 
+patient_nan$clinpres[grepl("1 8", patient_nan$consultation.q19_signeClinique) & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic)) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[grepl("oeil", patient_nan$consultation.q19_AutresigneClinique) & is.na(patient_nan$clinpres)] <- "eye condition" 
+patient_nan$clinpres[grepl("l’œil", patient_nan$consultation.q19_AutresigneClinique) & is.na(patient_nan$clinpres)] <- "eye condition" 
+patient_nan$clinpres[grepl("15", patient_nan$consultation.q19_signeClinique) & is.na(patient_nan$clinpres)] <- "wound" 
+patient_nan$clinpres[grepl("blessure", patient_nan$consultation.q19_AutresigneClinique) & is.na(patient_nan$clinpres)] <- "wound" 
+patient_nan$clinpres[grepl("maux de bas ", patient_nan$consultation.q19_AutresigneClinique) & is.na(patient_nan$clinpres)] <- "unexplained gastro-intestinal" # to check
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 18" & is.na(patient_nan$consultation.q22_resultaTestDiagnostic) & is.na(patient_nan$clinpres)] <- "skin/soft tissue infection" # the remaining "other" symptoms are non specific
+# at this point, no specific signs and symptoms are remaining -> any malaria positive test is labelled malaria in patients with reported symptoms
+patient_nan$clinpres[!is.na(patient_nan$consultation.q19_signeClinique) & patient_nan$consultation.q19_signeClinique != "" & patient_nan$consultation.q22_resultaTestDiagnostic==1 & is.na(patient_nan$clinpres)] <- "malaria" 
+# fever without pos malaria test result labelled as unexplained fever
+patient_nan$clinpres[grepl("1 ", patient_nan$consultation.q19_signeClinique) & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic)) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="8 13 1" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic)) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="8 7 1" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic)) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="13 1" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic)) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="14 1" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic)) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="7 1" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic)) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="7 13 1" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic)) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="8 1" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic)) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+# remaining non-specific symptoms or complaints labelled as such
+patient_nan$clinpres[!is.na(patient_nan$consultation.q19_signeClinique) & patient_nan$consultation.q19_signeClinique != "" & is.na(patient_nan$clinpres)] <- "non-specific symptoms or complaints" 
+table(patient_nan$clinpres, useNA = "always") #832 patients with no symptoms reported
+
+# check the clinical presentations vs the labeling as acute vs chronic illness and relabel when clearly no chronic illness
+table(patient_nan$clinpres, patient_nan$illness)
+table(patient_nan$consultation.q25_maladieDiagnostic[!is.na(patient_nan$clinpres)&patient_nan$illness=="yes_chronic"], useNA="always")
+patient_nan$illness[patient_nan$consultation.q25_maladieDiagnostic=="1"&!is.na(patient_nan$clinpres)&patient_nan$illness=="yes_chronic"] <- "yes_acute_illness" # malaria as diagnosis > acute
+patient_nan$illness[patient_nan$consultation.q25_maladieDiagnostic=="1 12"&!is.na(patient_nan$clinpres)&patient_nan$illness=="yes_chronic"] <- "yes_acute_illness" # malaria and peptic ulcer as diagnosis > acute
+patient_nan$illness[patient_nan$consultation.q25_maladieDiagnostic=="10"&!is.na(patient_nan$clinpres)&patient_nan$illness=="yes_chronic"] <- "yes_acute_illness" # dengue as diagnosis > acute
+patient_nan$illness[patient_nan$consultation.q25_maladieDiagnostic=="11"&!is.na(patient_nan$clinpres)&patient_nan$illness=="yes_chronic"] <- "yes_acute_illness" # UTI as diagnosis > acute
+patient_nan$illness[patient_nan$consultation.q25_maladieDiagnostic=="4"&!is.na(patient_nan$clinpres)&patient_nan$illness=="yes_chronic"] <- "yes_acute_illness" # angine as diagnostic
+patient_nan$illness[patient_nan$consultation.q25_maladieDiagnostic=="6"&!is.na(patient_nan$clinpres)&patient_nan$illness=="yes_chronic"] <- "yes_acute_illness" # bronchitis as diagnostic
+patient_nan$illness[patient_nan$consultation.q25_maladieDiagnostic=="7"&!is.na(patient_nan$clinpres)&patient_nan$illness=="yes_chronic"] <- "yes_acute_illness" # pneumonia as diagnostic
+
+# group clinical presentations in broad categories
+patient_nan$clinpres_broad <- patient_nan$clinpres
+patient_nan$clinpres_broad[patient_nan$clinpres=="acute otitis media"] <- "acute respiratory infection"
+patient_nan$clinpres_broad[patient_nan$clinpres=="bronchiolitis"] <- "acute respiratory infection"
+patient_nan$clinpres_broad[patient_nan$clinpres=="bronchitis"] <- "acute respiratory infection"
+patient_nan$clinpres_broad[patient_nan$clinpres=="covid-19"] <- "acute respiratory infection"
+patient_nan$clinpres_broad[patient_nan$clinpres=="pharyngitis"] <- "acute respiratory infection"
+patient_nan$clinpres_broad[patient_nan$clinpres=="cardiovascular condition"] <- "other"
+patient_nan$clinpres_broad[patient_nan$clinpres=="asthma/COPD"] <- "other"
+patient_nan$clinpres_broad[patient_nan$clinpres=="diabetes"] <- "other"
+patient_nan$clinpres_broad[patient_nan$clinpres=="other infections"] <- "non-bacterial infectious (viral outbreak, scabies, worms, amoebae)"
+patient_nan$clinpres_broad[patient_nan$clinpres=="scabies"] <- "non-bacterial infectious (viral outbreak, scabies, worms, amoebae)"
+patient_nan$clinpres_broad[patient_nan$clinpres=="parasitic infections"] <- "non-bacterial infectious (viral outbreak, scabies, worms, amoebae)"
+patient_nan$clinpres_broad[patient_nan$clinpres=="post surgery"] <- "other"
+patient_nan$clinpres_broad[patient_nan$clinpres=="other non infectious"] <- "other"
+patient_nan$clinpres_broad[patient_nan$clinpres=="eye condition"] <- "other"
+patient_nan$clinpres_broad[patient_nan$clinpres=="wound"] <- "other"
+patient_nan$clinpres_broad[patient_nan$clinpres=="peptic ulcer"] <- "other"
+patient_nan$clinpres_broad[patient_nan$clinpres=="appendicitis"] <- "other"
+patient_nan$clinpres_broad[patient_nan$clinpres=="typhoid"] <- "typhoid or sepsis"
+patient_nan$clinpres_broad[patient_nan$clinpres=="sepsis"] <- "typhoid or sepsis"
+patient_nan$clinpres_broad[is.na(patient_nan$clinpres)] <- "other"
+table(patient_nan$clinpres_broad)
+
 
 # link patient and antibiotic data
-nan <- merge(patient_nan_noab, ab_nan, by = "meta.instanceID", all = T) 
+nan <- merge(patient_nan, ab_nan, by = "meta.instanceID", all = T) 
 
 # anonymize the provider clusters to prevent identification of providers and remove identifying info in the overall db
 nan$cluster <- paste(nan$village.cluster, "-", nan$providertype, "-", nan$providernr) # 61 providers
@@ -772,7 +907,7 @@ nan$clusterID <- sapply(nan$cluster, function(clusterID) {
 
 # export database
 write.csv(nan, 'nan.csv')
-# still need to remove variables to make an anonymized db of nan
+# still need to remove age to make an anonymized db of nan
 
 # create a new variable watch that also is "Watch" if a fixed-dose combination contains at least one watch AB
 nan$aware <- nan$Category
@@ -781,7 +916,7 @@ table(nan$aware) # no fixed dose combination here
 # create a database with one line per patient indicating whether the patient used a Watch AB or not
 watchnan <- nan %>%
   filter(!is.na(round)) %>%
-  group_by(meta.instanceID, intervention, round, village.cluster, providertype, providernr, agegroup, sex, illness) %>%
+  group_by(meta.instanceID, intervention, round, village.cluster, providertype, providernr, agegroup, sex, illness, clinpres_broad) %>%
   summarise(watch = if_else(any(aware == "Watch"), 1, 0),
             antibiotic = if_else(any(!is.na(abgeneric)), 1, 0))
 watchnan$watch[is.na(watchnan$watch)] <- 0
@@ -830,11 +965,9 @@ watchnan <- watchnan %>% select(-providernr, -meta.instanceID)
 watchkim <- watchkim %>% select(-providernr, -`_uuid`)
 
 # merge both
-# since clinical presentations of nanoro not cleaned yet, add that var to the dataframe, and remove this when the actual variable is there
-watchnan$clinpres_broad <- NA
 watch <- rbind(watchnan, watchkim)
 
-# add population numbers per village/neighbourhood cluster STILL COMPLETE NUMBERS HERE!!!
+# add population numbers per village/neighbourhood cluster 
 watch <- watch %>%  mutate(pop_villagecluster = case_when(
     village.cluster == "BAL" ~ 1716,
     village.cluster == "BOL" ~ 6829,
@@ -930,8 +1063,8 @@ watch$agegroup <- factor(watch$agegroup, levels = c("0-4 yr", "5-17 yr", "18-64 
 watch$illness <- factor(watch$illness, levels = c("yes_acute_illness", "yes_chronic", "no_noillness", "no_animalhealth"))
 watch$providertype <- factor(watch$providertype, levels = c("healthcentre_publique", "privateclinic", "privatepharmacy", "informalvendor"))
 watch$providertype_publicprivateclinicscombined <- factor(watch$providertype_publicprivateclinicscombined, levels = c("healthcentre", "privatepharmacy", "informalvendor"))
-watch$clinpres_broad <- factor(watch$clinpres_broad, levels = c("malaria", "acute respiratory infection", "skin/soft tissue infection", "unexplained fever", 
-                                                                                           "non-bacterial infectious (viral rash, worms, amoebae)", "non-specific symptoms or complaints", "typhoid or sepsis", 
+watch$clinpres_broad <- factor(watch$clinpres_broad, levels = c("malaria", "acute respiratory infection", "skin/soft tissue infection", "unexplained fever", "unexplained gastro-intestinal",
+                                                                                           "non-bacterial infectious (viral outbreak, scabies, worms, amoebae)", "non-specific symptoms or complaints", "typhoid or sepsis", 
                                                                                            "urinary tract infection", "gastroenteritis", "pneumonia", "sexually transmitted infection", "dental", "other"))
 
 # exclude animal use, chronic patients, no illness, to keep just acute illness
@@ -1004,7 +1137,7 @@ nclusters_providertype
 nclusters_providertype_intervention <- watch %>% group_by(intervention, providertype, cluster) %>% summarise(n()) %>% group_by(intervention, providertype) %>% summarise(n())
 nclusters_providertype_intervention
 
-# table 1 patient characteristics
+# table 2 patient characteristics
 # illness
 illnessdistr <- watch %>%
   group_by(site, intervention) %>%
@@ -1069,18 +1202,38 @@ colnames(illnessdistr)[1] <- "characteristic"
 colnames(agegroupdistr)[1] <- "characteristic"
 colnames(sexdistr)[1] <- "characteristic"
 colnames(clinpresdistr)[1] <- "characteristic"
-table1 <- rbind(illnessdistr)
-table1 <- bind_rows(illnessdistr, agegroupdistr, sexdistr, clinpresdistr)
+table2 <- rbind(illnessdistr)
+table2 <- bind_rows(illnessdistr, agegroupdistr, sexdistr, clinpresdistr)
 # reorder columns
-table1 <- table1 %>% select("characteristic", "n_Kimpese_control","percent_Kimpese_control","n_Kimpese_intervention",
+table2 <- table2 %>% select("characteristic", "n_Kimpese_control","percent_Kimpese_control","n_Kimpese_intervention",
                             "percent_Kimpese_intervention", "n_Nanoro_control", "percent_Nanoro_control", "n_Nanoro_intervention",                     
                             "percent_Nanoro_intervention" )
 # save table
-write.table(table1, "table1.txt")
-write_xlsx(table1, "table1.xlsx")
+write.table(table2, "table2.txt")
+write_xlsx(table2, "table2.xlsx")
 
-#### 5. PREVALENCE WATCH ANTIBIOTIC USE ####
-# 4.1 crude prevalence by provider type, by intervention/control group, by site, and pre- vs. post intervention
+#### 5. CRUDE PREVALENCE ANTIBIOTIC USE ####
+# 5.1 crude prevalence by provider type, by intervention/control group, by site, and pre- vs. post intervention
+# any antibiotic
+summary_antibioticcounts <- watch_acute %>%
+  group_by(site, intervention, providertype, round) %>%
+  summarise(
+    count_antibiotic = sum(antibiotic == 1),
+    total_count = n(),
+    percentage_antibiotic = round((count_antibiotic / total_count) * 100, 1)
+  ) %>%
+  mutate(combined_counts = paste(count_antibiotic, total_count, sep = "/")) %>%
+  select(site, intervention, providertype, round, combined_counts, percentage_antibiotic) %>%
+  pivot_wider(
+    names_from = c(site, intervention),
+    values_from = c(combined_counts, percentage_antibiotic),
+    names_sep = "_"
+  )
+summary_antibioticcounts <- summary_antibioticcounts %>% select(c("providertype","round","combined_counts_Kimpese_control","percentage_antibiotic_Kimpese_control",
+                                                        "combined_counts_Kimpese_intervention", "percentage_antibiotic_Kimpese_intervention", "combined_counts_Nanoro_control",
+                                                        "percentage_antibiotic_Nanoro_control", "combined_counts_Nanoro_intervention","percentage_antibiotic_Nanoro_intervention" )) 
+write_xlsx(summary_antibioticcounts, "summary_antibioticcounts.xlsx")
+
 # watch
 summary_watchcounts <- watch_acute %>%
   group_by(site, intervention, providertype, round) %>%
@@ -1102,27 +1255,50 @@ summary_watchcounts <- summary_watchcounts %>% select(c("providertype","round","
 write.table(summary_watchcounts, "summary_watchcounts.txt")
 write_xlsx(summary_watchcounts, "summary_watchcounts.xlsx")
 
+# 5.2 crude prevalence by clinical presentation, by intervention/control group, by site, and pre- vs. post intervention
 # any antibiotic
-summary_antibioticcounts <- watch_acute %>%
-  group_by(site, intervention, providertype, round) %>%
+clinpres_antibioticcounts <- watch_acute %>%
+  group_by(site, intervention, clinpres_broad, round) %>%
   summarise(
     count_antibiotic = sum(antibiotic == 1),
     total_count = n(),
     percentage_antibiotic = round((count_antibiotic / total_count) * 100, 1)
   ) %>%
   mutate(combined_counts = paste(count_antibiotic, total_count, sep = "/")) %>%
-  select(site, intervention, providertype, round, combined_counts, percentage_antibiotic) %>%
+  select(site, intervention, clinpres_broad, round, combined_counts, percentage_antibiotic) %>%
   pivot_wider(
     names_from = c(site, intervention),
     values_from = c(combined_counts, percentage_antibiotic),
     names_sep = "_"
   )
-summary_antibioticcounts <- summary_antibioticcounts %>% select(c("providertype","round","combined_counts_Kimpese_control","percentage_antibiotic_Kimpese_control",
-                                                        "combined_counts_Kimpese_intervention", "percentage_antibiotic_Kimpese_intervention", "combined_counts_Nanoro_control",
-                                                        "percentage_antibiotic_Nanoro_control", "combined_counts_Nanoro_intervention","percentage_antibiotic_Nanoro_intervention" )) 
-write_xlsx(summary_antibioticcounts, "summary_antibioticcounts.xlsx")
+clinpres_antibioticcounts <- clinpres_antibioticcounts %>% select(c("clinpres_broad","round","combined_counts_Kimpese_control","percentage_antibiotic_Kimpese_control",
+                                                                  "combined_counts_Kimpese_intervention", "percentage_antibiotic_Kimpese_intervention", "combined_counts_Nanoro_control",
+                                                                  "percentage_antibiotic_Nanoro_control", "combined_counts_Nanoro_intervention","percentage_antibiotic_Nanoro_intervention" )) 
+write_xlsx(clinpres_antibioticcounts, "clinpres_antibioticcounts.xlsx")
 
-# 4.2 two-stage cluster sampling-corrected prevalence by group
+# watch
+clinpres_watchcounts <- watch_acute %>%
+  group_by(site, intervention, clinpres_broad, round) %>%
+  summarise(
+    count_watch_1 = sum(watch == 1),
+    total_count = n(),
+    percentage_watch_1 = round((count_watch_1 / total_count) * 100, 1)
+  ) %>%
+  mutate(combined_counts = paste(count_watch_1, total_count, sep = "/")) %>%
+  select(site, intervention, clinpres_broad, round, combined_counts, percentage_watch_1) %>%
+  pivot_wider(
+    names_from = c(site, intervention),
+    values_from = c(combined_counts, percentage_watch_1),
+    names_sep = "_"
+  )
+clinpres_watchcounts <- clinpres_watchcounts %>% select(c("clinpres_broad","round","combined_counts_Kimpese_control","percentage_watch_1_Kimpese_control",
+                                                        "combined_counts_Kimpese_intervention", "percentage_watch_1_Kimpese_intervention", "combined_counts_Nanoro_control",
+                                                        "percentage_watch_1_Nanoro_control", "combined_counts_Nanoro_intervention","percentage_watch_1_Nanoro_intervention" )) 
+write.table(summary_watchcounts, "clinpres_watchcounts.txt")
+write_xlsx(summary_watchcounts, "clinpres_watchcounts.xlsx")
+
+
+#### 6. TWO STAGE CLUSTER ADJUSTED PREVALENCE ESTIMATES ####
 # WATCH
 # proportion estimates by site, type of provider, intervention/control and pre/post
 surveydesign <- svydesign(id = ~clusterID, data = watch_acute, nest = TRUE)
@@ -1386,7 +1562,7 @@ mixed_model_option2 <- glmer(watch ~ round*intervention + site + clusterID + (1|
                      data = watch_acute)
 
 
-#### 7. FIGURE WITH PREVALENCE AND RR BY TYPE OF PROVIDER ####
+#### 7. FIGURE 1A & B. PREVALENCE ANY ANTIBIOTIC & WATCH AND RR OVERALL, BY SITE AND BY TYPE OF PROVIDER ####
 # 7.1 ANY ANTIBIOTIC
 # overall prevalence and prevalence ratio
 surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset, weights = ~weight)
@@ -1491,24 +1667,651 @@ print(subgroup_effects, row.names = FALSE)
 # )
 # prevalence_estimates
 
-# prevalence and prevalence ratio by clinical presentation
-surveydesign <- svydesign(id = ~clusterID, data = watch_acute_clinpres_offset, weights = ~weight)
-# prevalence estimates by clinical presentation
+# site-specific prevalence and prevalence ratio
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset, weights = ~weight)
+# prevalence estimates by site
 surveydesign <- update(surveydesign, prevalence = n_antibiotic / n_surveys)
-prevalence_estimates_clinpres <- svyby(~ prevalence,  ~ clinpres_broad + round + intervention,  # Grouping variables
-                              design = surveydesign,
-                              svymean,  # Function to calculate means
-                              vartype = c("ci")  # Include confidence intervals
+prevalence_estimates_site <- svyby(~ prevalence,  ~ site + round + intervention,  # Grouping variables
+                                           design = surveydesign,
+                                           svymean,  # Function to calculate means
+                                           vartype = c("ci")  # Include confidence intervals
 )
-prevalence_estimates_clinpres$prevalence <- round(prevalence_estimates_clinpres$prevalence*100, 1)
-prevalence_estimates_clinpres$ci_l <- round(prevalence_estimates_clinpres$ci_l*100, 1)
-prevalence_estimates_clinpres$ci_u <- round(prevalence_estimates_clinpres$ci_u*100, 1)
-prevalence_estimates_clinpres
+prevalence_estimates_site$prevalence <- round(prevalence_estimates_site$prevalence*100, 1)
+prevalence_estimates_site$ci_l <- round(prevalence_estimates_site$ci_l*100, 1)
+prevalence_estimates_site$ci_u <- round(prevalence_estimates_site$ci_u*100, 1)
+prevalence_estimates_site
+  
+# fit negative binomial model with survey weights (using glm.nb instead of svyglm because the svyglm does not allow for negative binomial regression)
+# subset Nanoro
+watch_acute_offset_nan <- watch_acute_offset %>% filter(site=="Nanoro")
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset_nan, weights = ~weight)
+nb_model_subgroup <- glm.nb(
+  n_antibiotic ~ offset(log(pop_patients)) + round * intervention, 
+  weights = surveydesign$weights,
+  data = watch_acute_offset_nan
+)
+coef_summary <- summary(nb_model_subgroup)$coefficients
+interaction_coefs <- coef_summary[grep("roundpost:intervention", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- exp(log_coefs)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = rr,
+  CI_Lower = rr_ci_lower,
+  CI_Upper = rr_ci_upper
+)
+print(subgroup_effects, row.names = FALSE)
+# subset Kimpese
+watch_acute_offset_kim <- watch_acute_offset %>% filter(site=="Kimpese")
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset_kim, weights = ~weight)
+nb_model_subgroup <- glm.nb(
+  n_antibiotic ~ offset(log(pop_patients)) + round * intervention, 
+  weights = surveydesign$weights,
+  data = watch_acute_offset_kim
+)
+coef_summary <- summary(nb_model_subgroup)$coefficients
+interaction_coefs <- coef_summary[grep("roundpost:intervention", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- exp(log_coefs)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = rr,
+  CI_Lower = rr_ci_lower,
+  CI_Upper = rr_ci_upper
+)
+print(subgroup_effects, row.names = FALSE)
 
+# show on a plot
+# append prevalence estimates in a single dataframe
+# colnames(prevalence_estimates_clinpres)[colnames(prevalence_estimates_clinpres) == "clinpres_broad"] <- "subgroup"
+colnames(prevalence_estimates_providertype)[colnames(prevalence_estimates_providertype) == "providertype"] <- "subgroup"
+colnames(prevalence_estimates_site)[colnames(prevalence_estimates_site) == "site"] <- "subgroup"
+prevalence_estimates_overall$subgroup <- "OVERALL, weighted"
+prevalence_estimates <- rbind(prevalence_estimates_overall, prevalence_estimates_providertype)
+prevalence_estimates <- rbind(prevalence_estimates, prevalence_estimates_site)
+prevalence_estimates$interventionround <- paste(prevalence_estimates$intervention,", ",prevalence_estimates$round)
+# ensure subgroup is categorical
+# subgroups <- c("overall, weighted","healthcentre_publique","privateclinic","privatepharmacy","informalvendor","malaria", "acute respiratory infection", "skin/soft tissue infection", "unexplained fever", 
+#                    "non-bacterial infectious (viral outbreak, scabies, worms, amoebae)", "non-specific symptoms or complaints", "typhoid or sepsis", 
+#                    "urinary tract infection", "gastroenteritis", "pneumonia", "sexually transmitted infection", "dental", "other")
+# subgroups_reversed <- rev(subgroups)
+
+# remove unnecessary spaces
+prevalence_estimates$subgroup <- gsub(" ,  ", ",", prevalence_estimates$subgroup)
+
+# rename provider labels
+prevalence_estimates <- prevalence_estimates %>%
+  mutate(subgroup = recode(subgroup,
+                           "informalvendor" = "informal vendor",
+                           "privatepharmacy" = "community pharmacy/store",
+                           "privateclinic" = "private clinic",
+                           "healthcentre_publique" = "health centre",
+                           "Nanoro" = "Nanoro",
+                           "Kimpese" = "Kimpese",
+                           "OVERALL, weighted" = "OVERALL, weighted"))
+
+# prevalence_estimates$subgroup <- factor(prevalence_estimates$subgroup, levels = subgroups_reversed)
+prevalence_estimates$subgroup <- factor(prevalence_estimates$subgroup, levels = c("informal vendor", "community pharmacy/store","private clinic","health centre", "Nanoro","Kimpese","OVERALL, weighted"))
+
+# add a vertical position for each estimate
+prevalence_estimates <- prevalence_estimates %>% mutate(position = case_when(
+      intervention == "intervention" & round == "baseline" ~ as.numeric(subgroup) + 0.15,
+      intervention == "intervention" & round == "post" ~ as.numeric(subgroup) + 0.08,
+      intervention == "control" & round == "baseline" ~ as.numeric(subgroup) - 0.08,
+      intervention == "control" & round == "post" ~ as.numeric(subgroup) - 0.15
+    )
+  )
+
+# add a variable with the PR values of for each change
+prevalence_estimates$pr <- ""
+prevalence_estimates$pr[prevalence_estimates$intervention=="intervention"&prevalence_estimates$round=="post"&prevalence_estimates$subgroup=="OVERALL, weighted"] <- "PR 0.45 (95%CI 0.24-0.85)"
+prevalence_estimates$pr[prevalence_estimates$intervention=="intervention"&prevalence_estimates$round=="post"&prevalence_estimates$subgroup=="Kimpese"] <- "PR 0.44 (95%CI 0.18-1.10)"
+prevalence_estimates$pr[prevalence_estimates$intervention=="intervention"&prevalence_estimates$round=="post"&prevalence_estimates$subgroup=="Nanoro"] <- "PR 0.52 (95%CI 0.21-1.25)"
+prevalence_estimates$pr[prevalence_estimates$intervention=="intervention"&prevalence_estimates$round=="post"&prevalence_estimates$subgroup=="health centre"] <- "PR 0.42 (95%CI 0.15-1.18)"
+prevalence_estimates$pr[prevalence_estimates$intervention=="intervention"&prevalence_estimates$round=="post"&prevalence_estimates$subgroup=="private clinic"] <- "PR 0.57 (95%CI 0.05-6.58)"
+prevalence_estimates$pr[prevalence_estimates$intervention=="intervention"&prevalence_estimates$round=="post"&prevalence_estimates$subgroup=="community pharmacy/store"] <- "PR 1.3 (95%CI 0.26-6.4)"
+prevalence_estimates$pr[prevalence_estimates$intervention=="intervention"&prevalence_estimates$round=="post"&prevalence_estimates$subgroup=="informal vendor"] <- "PR 1.9 (95%CI 0.39-9.1)"
+
+# make plot
+subgroup_prevalence_plot <- ggplot(prevalence_estimates, aes(x = prevalence, y = position)) +
+  geom_point(
+    aes(color = interventionround), 
+    size = 3  ) +  
+  geom_errorbarh(
+    aes(xmin = ci_l, xmax = ci_u, color = interventionround), 
+    height = 0.1 ) +   
+  scale_y_continuous(
+    breaks = as.numeric(prevalence_estimates$subgroup),
+    labels = prevalence_estimates$subgroup,
+  ) +
+  scale_x_continuous(
+    labels = scales::percent_format(scale = 1),
+    limits = c(0, 100),
+    name = "Prevalence of antibiotic use (%)"
+  ) +  
+  scale_color_manual(values = c("lightgrey", "darkgrey", "#FF6666", "#800000")) +
+  guides(color = guide_legend(reverse = TRUE))  +
+  theme_minimal() +
+  theme(panel.grid.major.y = element_blank(),
+        legend.position = "bottom") +
+  geom_hline(yintercept = c(4.5,6.5), linetype = "solid", color = "darkgrey") +
+  labs(
+    y = element_blank(), 
+    color = "Intervention/control clusters & time"  
+  ) +
+  geom_text(aes(label = pr),
+            hjust = -0.3,       # shift label a bit to the right of the point
+            vjust = 3.9,        # vertical alignment
+            size = 2.5)
+subgroup_prevalence_plot
+
+ggsave("subgroup_prevalence_plot.jpeg", plot = subgroup_prevalence_plot, width = 6, height = 6, dpi = 300)
+write_xlsx(prevalence_estimates, "prevalence_estimates.xlsx")
+
+# 7.2 WATCH
+# OVERALL prevalence and prevalence ratio
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset, weights = ~weight)
+# prevalence estimates by provider type 
+surveydesign_prevalence <- update(surveydesign, prevalence = n_watch / n_surveys)
+watchprevalence_estimates_overall <- svyby(~ prevalence,  ~ round + intervention,  # Grouping variables
+                                      design = surveydesign_prevalence,
+                                      svymean,  # Function to calculate means
+                                      vartype = c("ci")  # Include confidence intervals
+)
+watchprevalence_estimates_overall$prevalence <- round(watchprevalence_estimates_overall$prevalence*100, 1)
+watchprevalence_estimates_overall$ci_l <- round(watchprevalence_estimates_overall$ci_l*100, 1)
+watchprevalence_estimates_overall$ci_u <- round(watchprevalence_estimates_overall$ci_u*100, 1)
+watchprevalence_estimates_overall
 
 # fit negative binomial model with survey weights (using glm.nb instead of svyglm because the svyglm does not allow for negative binomial regression)
+library(MASS)
+nb_model_subgroup <- glm.nb(
+  n_watch ~ offset(log(pop_patients)) + round * intervention, 
+  weights = surveydesign$weights,
+  data = watch_acute_offset
+)
+coef_summary <- summary(nb_model_subgroup)$coefficients
+interaction_coefs <- coef_summary[grep("roundpost:intervention", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- exp(log_coefs)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+# table of results
+overall_effect <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = rr,
+  CI_Lower = rr_ci_lower,
+  CI_Upper = rr_ci_upper
+)
+print(overall_effect, row.names = FALSE)
+
+# BY SITE
+# site-specific prevalence and prevalence ratio
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset, weights = ~weight)
+# prevalence estimates by site
+surveydesign <- update(surveydesign, prevalence = n_watch / n_surveys)
+watchprevalence_estimates_site <- svyby(~ prevalence,  ~ site + round + intervention,  # Grouping variables
+                                   design = surveydesign,
+                                   svymean,  # Function to calculate means
+                                   vartype = c("ci")  # Include confidence intervals
+)
+watchprevalence_estimates_site$prevalence <- round(watchprevalence_estimates_site$prevalence*100, 1)
+watchprevalence_estimates_site$ci_l <- round(watchprevalence_estimates_site$ci_l*100, 1)
+watchprevalence_estimates_site$ci_u <- round(watchprevalence_estimates_site$ci_u*100, 1)
+watchprevalence_estimates_site
+
+# fit negative binomial model with survey weights (using glm.nb instead of svyglm because the svyglm does not allow for negative binomial regression)
+# subset Nanoro
+watch_acute_offset_nan <- watch_acute_offset %>% filter(site=="Nanoro")
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset_nan, weights = ~weight)
+nb_model_subgroup <- glm.nb(
+  n_watch ~ offset(log(pop_patients)) + round * intervention, 
+  weights = surveydesign$weights,
+  data = watch_acute_offset_nan
+)
+coef_summary <- summary(nb_model_subgroup)$coefficients
+interaction_coefs <- coef_summary[grep("roundpost:intervention", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- exp(log_coefs)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = rr,
+  CI_Lower = rr_ci_lower,
+  CI_Upper = rr_ci_upper
+)
+print(subgroup_effects, row.names = FALSE)
+
+# subset Kimpese
+watch_acute_offset_kim <- watch_acute_offset %>% filter(site=="Kimpese")
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset_kim, weights = ~weight)
+nb_model_subgroup <- glm.nb(
+  n_watch ~ offset(log(pop_patients)) + round * intervention, 
+  weights = surveydesign$weights,
+  data = watch_acute_offset_kim
+)
+coef_summary <- summary(nb_model_subgroup)$coefficients
+interaction_coefs <- coef_summary[grep("roundpost:intervention", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- exp(log_coefs)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = rr,
+  CI_Lower = rr_ci_lower,
+  CI_Upper = rr_ci_upper
+)
+print(subgroup_effects, row.names = FALSE)
+
+# BY PROVIDERTYPE prevalence and prevalence ratio
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset, weights = ~weight)
+# prevalence estimates by provider type 
+surveydesign <- update(surveydesign, prevalence = n_watch / n_surveys)
+watchprevalence_estimates_providertype <- svyby(~ prevalence,  ~ providertype + round + intervention,  # Grouping variables
+                                           design = surveydesign,
+                                           svymean,  # Function to calculate means
+                                           vartype = c("ci")  # Include confidence intervals
+)
+watchprevalence_estimates_providertype$prevalence <- round(watchprevalence_estimates_providertype$prevalence*100, 1)
+watchprevalence_estimates_providertype$ci_l <- round(watchprevalence_estimates_providertype$ci_l*100, 1)
+watchprevalence_estimates_providertype$ci_u <- round(watchprevalence_estimates_providertype$ci_u*100, 1)
+watchprevalence_estimates_providertype
+
+# fit negative binomial model with survey weights (using glm.nb instead of svyglm because the svyglm does not allow for negative binomial regression)
+nb_model_subgroup <- glm.nb(
+  n_watch ~ offset(log(pop_patients)) + round * intervention * providertype, 
+  weights = surveydesign$weights,
+  data = watch_acute_offset
+)
+coef_summary <- summary(nb_model_subgroup)$coefficients
+interaction_coefs <- coef_summary[grep("roundpost:intervention", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- round(exp(log_coefs),2)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = round(rr,2),
+  CI_Lower = round(rr_ci_lower,2),
+  CI_Upper = round(rr_ci_upper,2))
+print(subgroup_effects, row.names = FALSE)
+# not sure why the values of private clinics don't make sense -> instead subset by each provider type
+
+# subset private clinics
+watch_acute_offset_privateclinics <- watch_acute_offset[watch_acute_offset$providertype=="privateclinic",]
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset_privateclinics, weights = ~weight)
+nb_model_subgroup <- glm.nb(
+  n_watch ~ offset(log(pop_patients)) + round * intervention, 
+  weights = surveydesign$weights,
+  data = watch_acute_offset_privateclinics
+)
+coef_summary <- summary(nb_model_subgroup)$coefficients
+interaction_coefs <- coef_summary[grep("roundpost:intervention", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- round(exp(log_coefs),2)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = round(rr,2),
+  CI_Lower = round(rr_ci_lower,2),
+  CI_Upper = round(rr_ci_upper,2))
+print(subgroup_effects, row.names = FALSE)
+# subset health centres
+watch_acute_offset_healthcentre <- watch_acute_offset[watch_acute_offset$providertype=="healthcentre_publique",]
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset_healthcentre, weights = ~weight)
+nb_model_subgroup <- glm.nb(
+  n_watch ~ offset(log(pop_patients)) + round * intervention, 
+  weights = surveydesign$weights,
+  data = watch_acute_offset_healthcentre
+)
+coef_summary <- summary(nb_model_subgroup)$coefficients
+interaction_coefs <- coef_summary[grep("roundpost:intervention", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- round(exp(log_coefs),2)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = round(rr,2),
+  CI_Lower = round(rr_ci_lower,2),
+  CI_Upper = round(rr_ci_upper,2))
+print(subgroup_effects, row.names = FALSE)
+# subset pharmacies
+watch_acute_offset_pharmacy <- watch_acute_offset[watch_acute_offset$providertype=="privatepharmacy",]
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset_pharmacy, weights = ~weight)
+nb_model_subgroup <- glm.nb(
+  n_watch ~ offset(log(pop_patients)) + round * intervention, 
+  weights = surveydesign$weights,
+  data = watch_acute_offset_pharmacy
+)
+coef_summary <- summary(nb_model_subgroup)$coefficients
+interaction_coefs <- coef_summary[grep("roundpost:intervention", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- round(exp(log_coefs),2)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = round(rr,2),
+  CI_Lower = round(rr_ci_lower,2),
+  CI_Upper = round(rr_ci_upper,2))
+print(subgroup_effects, row.names = FALSE)
+
+# show on a plot
+# append prevalence estimates in a single dataframe
+# colnames(prevalence_estimates_clinpres)[colnames(prevalence_estimates_clinpres) == "clinpres_broad"] <- "subgroup"
+colnames(watchprevalence_estimates_providertype)[colnames(watchprevalence_estimates_providertype) == "providertype"] <- "subgroup"
+colnames(watchprevalence_estimates_site)[colnames(watchprevalence_estimates_site) == "site"] <- "subgroup"
+watchprevalence_estimates_overall$subgroup <- "OVERALL, weighted"
+watchprevalence_estimates <- rbind(watchprevalence_estimates_overall, watchprevalence_estimates_providertype)
+watchprevalence_estimates <- rbind(watchprevalence_estimates, watchprevalence_estimates_site)
+watchprevalence_estimates$interventionround <- paste(watchprevalence_estimates$intervention,", ",watchprevalence_estimates$round)
+# ensure subgroup is categorical
+# subgroups <- c("overall, weighted","healthcentre_publique","privateclinic","privatepharmacy","informalvendor","malaria", "acute respiratory infection", "skin/soft tissue infection", "unexplained fever", 
+#                    "non-bacterial infectious (viral outbreak, scabies, worms, amoebae)", "non-specific symptoms or complaints", "typhoid or sepsis", 
+#                    "urinary tract infection", "gastroenteritis", "pneumonia", "sexually transmitted infection", "dental", "other")
+# subgroups_reversed <- rev(subgroups)
+# 
+
+# rename provider labels
+watchprevalence_estimates <- watchprevalence_estimates %>%
+  mutate(subgroup = recode(subgroup,
+                           "informalvendor" = "informal vendor",
+                           "privatepharmacy" = "community pharmacy/store",
+                           "privateclinic" = "private clinic",
+                           "healthcentre_publique" = "health centre",
+                           "Nanoro" = "Nanoro",
+                           "Kimpese" = "Kimpese",
+                           "OVERALL, weighted" = "OVERALL, weighted"))
+
+watchprevalence_estimates$subgroup <- factor(watchprevalence_estimates$subgroup, levels = c("informal vendor", "community pharmacy/store","private clinic","health centre", "Nanoro","Kimpese","OVERALL, weighted"))
+
+# add a vertical position for each estimate
+watchprevalence_estimates <- watchprevalence_estimates %>% mutate(position = case_when(
+  intervention == "intervention" & round == "baseline" ~ as.numeric(subgroup) + 0.15,
+  intervention == "intervention" & round == "post" ~ as.numeric(subgroup) + 0.08,
+  intervention == "control" & round == "baseline" ~ as.numeric(subgroup) - 0.08,
+  intervention == "control" & round == "post" ~ as.numeric(subgroup) - 0.15
+))
+
+# add a variable with the PR values of for each change
+watchprevalence_estimates$pr <- ""
+watchprevalence_estimates$pr[watchprevalence_estimates$intervention=="intervention"&watchprevalence_estimates$round=="post"&watchprevalence_estimates$subgroup=="OVERALL, weighted"] <- "PR 0.31 (95%CI 0.11-0.91)"
+watchprevalence_estimates$pr[watchprevalence_estimates$intervention=="intervention"&watchprevalence_estimates$round=="post"&watchprevalence_estimates$subgroup=="Kimpese"] <- "PR 0.35 (95%CI 0.14-0.92)"
+watchprevalence_estimates$pr[watchprevalence_estimates$intervention=="intervention"&watchprevalence_estimates$round=="post"&watchprevalence_estimates$subgroup=="Nanoro"] <- "PR 0.35 (95%CI 0.06-2.07)"
+watchprevalence_estimates$pr[watchprevalence_estimates$intervention=="intervention"&watchprevalence_estimates$round=="post"&watchprevalence_estimates$subgroup=="health centre"] <- "PR 0.39 (95%CI 0.06-2.72)"
+watchprevalence_estimates$pr[watchprevalence_estimates$intervention=="intervention"&watchprevalence_estimates$round=="post"&watchprevalence_estimates$subgroup=="private clinic"] <- "PR 0.73 (95%CI 0.16-3.4)"
+watchprevalence_estimates$pr[watchprevalence_estimates$intervention=="intervention"&watchprevalence_estimates$round=="post"&watchprevalence_estimates$subgroup=="community pharmacy/store"] <- "PR 0.92 (95%CI 0.08-10)"
+watchprevalence_estimates$pr[watchprevalence_estimates$intervention=="intervention"&watchprevalence_estimates$round=="post"&watchprevalence_estimates$subgroup=="informal vendor"] <- ""
+
+# make plot
+subgroup_watchprevalence_plot <- ggplot(watchprevalence_estimates, aes(x = prevalence, y = position)) +
+  geom_point(
+    aes(color = interventionround), 
+    size = 3  ) +  
+  geom_errorbarh(
+    aes(xmin = ci_l, xmax = ci_u, color = interventionround), 
+    height = 0.1 ) +   # Error bars for confidence intervals
+  scale_y_continuous(
+    breaks = as.numeric(watchprevalence_estimates$subgroup),
+    labels = watchprevalence_estimates$subgroup,
+  ) +
+  scale_x_continuous(
+    labels = scales::percent_format(scale = 1),
+    limits = c(0, 100),
+    name = "Prevalence use of Watch group antibiotics (%)"
+  ) +  
+  scale_color_manual(values = c("lightgrey", "darkgrey", "#FF6666", "#800000")) +
+  guides(color = guide_legend(reverse = TRUE))  +
+  theme_minimal() +
+  theme(panel.grid.major.y = element_blank(),
+        legend.position = "bottom") +
+  geom_hline(yintercept = c(4.5,6.5), linetype = "solid", color = "darkgrey") + # Gridlines at 1st & 3rd position
+  labs(
+    y = element_blank(), 
+    color = "Intervention/control clusters & time" ) + # Rename legend title 
+  geom_text(aes(label = pr),
+            hjust = -0.3,       # shift label a bit to the right of the point
+            vjust = 3.9,        # vertical alignment
+            size = 2.5)
+subgroup_watchprevalence_plot
+ggsave("subgroup_watchprevalence_plot.jpeg", plot = subgroup_watchprevalence_plot, width = 6, height = 6, dpi = 300)
+
+
+#### 8. FIGURE 1C. PREVALENCE AND RR BY CLIN PRESENTATION ####
+# 8.1 ANY ANTIBIOTIC
+# prevalence and prevalence ratio by clinical presentation, using 2 stage cluster sampling, but not the offset (because it would require offsetting against expected patients per clinical presentation per individual provider)
+# use instead post stratification weights, considering hcu and total population 
+poststratweightedsurveydesign <- svydesign(id = ~clusterID, weights = ~poststratweight, data = watch_acute, nest = TRUE)
+prevalence_estimates_clinpres <- svyby(~antibiotic, by = ~intervention + round + clinpres_broad, 
+                                 design = poststratweightedsurveydesign, 
+                                 FUN = svymean, 
+                                 vartype = c("ci"),  # Include confidence intervals
+                                 na.rm = TRUE)
+prevalence_estimates_clinpres$prevalence <- round(prevalence_estimates_clinpres$antibiotic*100, 1)
+prevalence_estimates_clinpres$ci_l <- round(prevalence_estimates_clinpres$ci_l*100, 1)
+prevalence_estimates_clinpres$ci_u <- round(prevalence_estimates_clinpres$ci_u*100, 1)
+prevalence_estimates_clinpres$ci <- paste(prevalence_estimates_clinpres$ci_l,"-",prevalence_estimates_clinpres$ci_u)
+prevalence_estimates_clinpres <- prevalence_estimates_clinpres %>%  select(-ci_l, -ci_u, -antibiotic)
+prevalence_estimates_clinpres
+write_xlsx(prevalence_estimates_clinpres, "prevalence_estimates_clinpres.xlsx")
+
+# estimate RR
+watch_acute$clinpres_broad <- relevel(watch_acute$clinpres_broad, ref = "other")
+# log binomial regression
+poststratweightedsurveydesign <- svydesign(id = ~clusterID, weights = ~poststratweight, data = watch_acute, nest = TRUE)
+# no sampling weights here yet, so unclear what to do
+svy_binregressionmodel <- svyglm(antibiotic ~ intervention*round*clinpres_broad, 
+                                 design = poststratweightedsurveydesign, 
+                                 family = binomial(link = "logit")) # logit because with log (log binomial, error message asking to provide starting coefficients)
+summary(svy_binregressionmodel)
+coef_summary <- summary(svy_binregressionmodel)$coefficients
+interaction_coefs <- coef_summary[grep("interventionintervention:roundpost", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- exp(log_coefs)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+# table of results
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = round(rr,2),
+  CI_Lower = round(rr_ci_lower,2),
+  CI_Upper = round(rr_ci_upper,2)
+)
+print(subgroup_effects, row.names = FALSE) # values change in function of which clinpres set as reference
+
+# subset only malaria
+malaria <- watch_acute %>% filter(clinpres_broad=="malaria")
+# log binomial regression
+poststratweightedsurveydesign <- svydesign(id = ~clusterID, weights = ~poststratweight, data = malaria, nest = TRUE)
+# no sampling weights here yet, so unclear what to do
+svy_binregressionmodel <- svyglm(antibiotic ~ intervention*round+ providertype*intervention, 
+                                 design = poststratweightedsurveydesign, 
+                                 family = binomial(link = "logit")) # logit because with log (log binomial, error message asking to provide starting coefficients)
+
+summary(svy_binregressionmodel)
+coef_summary <- summary(svy_binregressionmodel)$coefficients
+interaction_coefs <- coef_summary[grep("interventionintervention:roundpost", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- exp(log_coefs)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+# table of results
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = round(rr,2),
+  CI_Lower = round(rr_ci_lower,2),
+  CI_Upper = round(rr_ci_upper,2)
+)
+print(subgroup_effects, row.names = FALSE)
+
+# subset only ARI
+ari <- watch_acute %>% filter(clinpres_broad=="acute respiratory infection")
+# log binomial regression
+poststratweightedsurveydesign <- svydesign(id = ~clusterID, weights = ~poststratweight, data = ari, nest = TRUE)
+# no sampling weights here yet, so unclear what to do
+svy_binregressionmodel <- svyglm(antibiotic ~ intervention*round + providertype*intervention, 
+                                 design = poststratweightedsurveydesign, 
+                                 family = binomial(link = "logit")) # logit because with log (log binomial, error message asking to provide starting coefficients)
+
+summary(svy_binregressionmodel)
+coef_summary <- summary(svy_binregressionmodel)$coefficients
+interaction_coefs <- coef_summary[grep("interventionintervention:roundpost", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- exp(log_coefs)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+# table of results
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = round(rr,2),
+  CI_Lower = round(rr_ci_lower,2),
+  CI_Upper = round(rr_ci_upper,2)
+)
+print(subgroup_effects, row.names = FALSE)
+
+# subset only unexplained fever
+fever <- watch_acute %>% filter(clinpres_broad=="unexplained fever")
+# log binomial regression
+poststratweightedsurveydesign <- svydesign(id = ~clusterID, weights = ~poststratweight, data = fever, nest = TRUE)
+# no sampling weights here yet, so unclear what to do
+svy_binregressionmodel <- svyglm(antibiotic ~ intervention*round + providertype*intervention, 
+                                 design = poststratweightedsurveydesign, 
+                                 family = binomial(link = "logit")) # logit because with log (log binomial, error message asking to provide starting coefficients)
+
+summary(svy_binregressionmodel)
+coef_summary <- summary(svy_binregressionmodel)$coefficients
+interaction_coefs <- coef_summary[grep("interventionintervention:roundpost", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- exp(log_coefs)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+# table of results
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = round(rr,2),
+  CI_Lower = round(rr_ci_lower,2),
+  CI_Upper = round(rr_ci_upper,2)
+)
+print(subgroup_effects, row.names = FALSE)
+
+# subset only skin/soft tissue
+skin <- watch_acute %>% filter(clinpres_broad=="skin/soft tissue infection")
+# log binomial regression
+poststratweightedsurveydesign <- svydesign(id = ~clusterID, weights = ~poststratweight, data = skin, nest = TRUE)
+# no sampling weights here yet, so unclear what to do
+svy_binregressionmodel <- svyglm(antibiotic ~ intervention*round + providertype*intervention, 
+                                 design = poststratweightedsurveydesign, 
+                                 family = binomial(link = "logit")) # logit because with log (log binomial, error message asking to provide starting coefficients)
+
+summary(svy_binregressionmodel)
+coef_summary <- summary(svy_binregressionmodel)$coefficients
+interaction_coefs <- coef_summary[grep("interventionintervention:roundpost", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- exp(log_coefs)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+# table of results
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = round(rr,2),
+  CI_Lower = round(rr_ci_lower,2),
+  CI_Upper = round(rr_ci_upper,2)
+)
+print(subgroup_effects, row.names = FALSE)
+
+# mixed effects model with random intercept
+mixed_model <- glmer(antibiotic ~ round*intervention*clinpres_broad + (1|clusterID) + (1|providertype),
+                             family = binomial(link = "logit"),
+                             data = watch_acute)
+summary(mixed_model)
+mixed_model_results <- tidy(mixed_model, conf.int = TRUE)
+mixed_model_results$or <- exp(mixed_model_results$estimate)
+mixed_model_results$ci_lower <- exp(mixed_model_results$conf.low)
+mixed_model_results$ci_upper <- exp(mixed_model_results$conf.high)
+mixed_model_results # it gives output, but not sure if correct and how to interpret; malaria OR 0.87 95%CI 0.54-1.39 & ARI 0.91 95%ci 0.54-1.51; putting providertype in model makes hardly any difference
+
+# # with WEIGHING AND OFFSET - using the offset database as used to estimate PR
+# surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset, weights = ~weight)
+# surveydesign <- update(surveydesign, prevalence = n_antibiotic / n_surveys)
+# prevalence_estimates <- svyby(~ prevalence,  ~ round + intervention,  # Grouping variables
+#                               design = surveydesign,
+#                               svymean,  # Function to calculate means
+#                               vartype = c("ci")  # Include confidence intervals
+# )
+# prevalence_estimates
+# 
+# # with offset - giving prevalence estimates that don't make sense
+# surveydesign <- svydesign(id = ~clusterID, data = watch_acute_clinpres_offset, weights = ~weight)
+# # prevalence estimates by clinical presentation
+# surveydesign <- update(surveydesign, prevalence = n_antibiotic / n_surveys)
+# prevalence_estimates_clinpres <- svyby(~ prevalence,  ~ clinpres_broad + round + intervention,  # Grouping variables
+#                                        design = surveydesign,
+#                                        svymean,  # Function to calculate means
+#                                        vartype = c("ci")  # Include confidence intervals
+# )
+# prevalence_estimates_clinpres$prevalence <- round(prevalence_estimates_clinpres$prevalence*100, 1)
+# prevalence_estimates_clinpres$ci_l <- round(prevalence_estimates_clinpres$ci_l*100, 1)
+# prevalence_estimates_clinpres$ci_u <- round(prevalence_estimates_clinpres$ci_u*100, 1)
+# prevalence_estimates_clinpres
+# prevalence_estimates_clinpres$ci <- paste(prevalence_estimates_clinpres$ci_l,"-",prevalence_estimates_clinpres$ci_u)
+# prevalence_estimates_clinpres <- prevalence_estimates_clinpres %>%  select(-ci_l, -ci_u)
+# write_xlsx(prevalence_estimates_clinpres, "prevalence_estimates_clinpres.xlsx")
+
+# negative binomial model with survey weights (using glm.nb instead of svyglm because the svyglm does not allow for negative binomial regression)
+watch_acute_clinpres_offset$clinpres_broad <- relevel(watch_acute_clinpres_offset$clinpres_broad, ref = "other")
+
 nb_model_clinpres <- glm.nb(
-  n_antibiotic ~ offset(log(pop_patients)) + round * intervention * clinpres_broad, 
+  n_antibiotic ~ offset(log(pop_patients)) + round * intervention * clinpres_broad + providertype, 
   weights = surveydesign$weights,
   data = watch_acute_clinpres_offset
 )
@@ -1530,113 +2333,348 @@ subgroup_effects <- data.frame(
 )
 print(subgroup_effects, row.names = FALSE)
 
-# show on a plot
-# append prevalence estimates in a single dataframe
-colnames(prevalence_estimates_clinpres)[colnames(prevalence_estimates_clinpres) == "clinpres_broad"] <- "subgroup"
-colnames(prevalence_estimates_providertype)[colnames(prevalence_estimates_providertype) == "providertype"] <- "subgroup"
-prevalence_estimates_overall$subgroup <- "overall, weighted"
-prevalence_estimates <- rbind(prevalence_estimates_overall, prevalence_estimates_providertype)
-prevalence_estimates <- rbind(prevalence_estimates, prevalence_estimates_clinpres)
-prevalence_estimates$interventionround <- paste(prevalence_estimates$intervention,", ",prevalence_estimates$round)
-# ensure subgroup is categorical
-subgroups <- c("overall, weighted","healthcentre_publique","privateclinic","privatepharmacy","informalvendor","malaria", "acute respiratory infection", "skin/soft tissue infection", "unexplained fever", 
-                   "non-bacterial infectious (viral rash, worms, amoebae)", "non-specific symptoms or complaints", "typhoid or sepsis", 
-                   "urinary tract infection", "gastroenteritis", "pneumonia", "sexually transmitted infection", "dental", "other")
-subgroups_reversed <- rev(subgroups)
+# 8.2 WATCH
+# prevalence and prevalence ratio by clinical presentation, using 2 stage cluster sampling, but not the offset (because it would require offsetting against expected patients per clinical presentation per individual provider)
+# use instead post stratification weights, considering hcu and total population 
+poststratweightedsurveydesign <- svydesign(id = ~clusterID, weights = ~poststratweight, data = watch_acute, nest = TRUE)
+watchprevalence_estimates_clinpres <- svyby(~watch, by = ~intervention + round + clinpres_broad, 
+                                       design = poststratweightedsurveydesign, 
+                                       FUN = svymean, 
+                                       vartype = c("ci"),  # Include confidence intervals
+                                       na.rm = TRUE)
+watchprevalence_estimates_clinpres$prevalence <- round(watchprevalence_estimates_clinpres$watch*100, 1)
+watchprevalence_estimates_clinpres$ci_l <- round(watchprevalence_estimates_clinpres$ci_l*100, 1)
+watchprevalence_estimates_clinpres$ci_u <- round(watchprevalence_estimates_clinpres$ci_u*100, 1)
+watchprevalence_estimates_clinpres$ci <- paste(watchprevalence_estimates_clinpres$ci_l,"-",watchprevalence_estimates_clinpres$ci_u)
+watchprevalence_estimates_clinpres <- watchprevalence_estimates_clinpres %>%  select(-ci_l, -ci_u, -watch)
+watchprevalence_estimates_clinpres
+write_xlsx(watchprevalence_estimates_clinpres, "watchprevalence_estimates_clinpres.xlsx")
 
-prevalence_estimates$subgroup <- factor(prevalence_estimates$subgroup, levels = subgroups_reversed)
-prevalence_estimates$subgroup <- factor(prevalence_estimates$subgroup, levels = c("overall, weighted","healthcentre_publique","privateclinic","privatepharmacy","informalvendor"))
+# estimate RR
+watch_acute$clinpres_broad <- relevel(watch_acute$clinpres_broad, ref = "other")
+# log binomial regression
+poststratweightedsurveydesign <- svydesign(id = ~clusterID, weights = ~poststratweight, data = watch_acute, nest = TRUE)
+# no sampling weights here yet, so unclear what to do
+svy_binregressionmodel <- svyglm(watch ~ intervention*round*clinpres_broad, 
+                                 design = poststratweightedsurveydesign, 
+                                 family = binomial(link = "logit")) # logit because with log (log binomial, error message asking to provide starting coefficients)
+summary(svy_binregressionmodel)
+coef_summary <- summary(svy_binregressionmodel)$coefficients
+interaction_coefs <- coef_summary[grep("interventionintervention:roundpost", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- exp(log_coefs)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+# table of results
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = round(rr,2),
+  CI_Lower = round(rr_ci_lower,2),
+  CI_Upper = round(rr_ci_upper,2)
+)
+print(subgroup_effects, row.names = FALSE) # values change in function of which clinpres set as reference
 
-str(prevalence_estimates$subgroup)
-# add a vertical position for each estimate
-prevalence_estimates <- prevalence_estimates %>% mutate(position = case_when(
-      intervention == "intervention" & round == "baseline" ~ as.numeric(subgroup) + 0.3,
-      intervention == "intervention" & round == "post" ~ as.numeric(subgroup) + 0.1,
-      intervention == "control" & round == "baseline" ~ as.numeric(subgroup) - 0.1,
-      intervention == "control" & round == "post" ~ as.numeric(subgroup) - 0.3
+# subset only malaria
+malaria <- watch_acute %>% filter(clinpres_broad=="malaria")
+# log binomial regression
+poststratweightedsurveydesign <- svydesign(id = ~clusterID, weights = ~poststratweight, data = malaria, nest = TRUE)
+# no sampling weights here yet, so unclear what to do
+svy_binregressionmodel <- svyglm(watch ~ intervention*round+ providertype*intervention, 
+                                 design = poststratweightedsurveydesign, 
+                                 family = binomial(link = "logit")) # logit because with log (log binomial, error message asking to provide starting coefficients)
+
+summary(svy_binregressionmodel)
+coef_summary <- summary(svy_binregressionmodel)$coefficients
+interaction_coefs <- coef_summary[grep("interventionintervention:roundpost", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- exp(log_coefs)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+# table of results
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = round(rr,2),
+  CI_Lower = round(rr_ci_lower,2),
+  CI_Upper = round(rr_ci_upper,2)
+)
+print(subgroup_effects, row.names = FALSE)
+
+# subset only ARI
+ari <- watch_acute %>% filter(clinpres_broad=="acute respiratory infection")
+# log binomial regression
+poststratweightedsurveydesign <- svydesign(id = ~clusterID, weights = ~poststratweight, data = ari, nest = TRUE)
+# no sampling weights here yet, so unclear what to do
+svy_binregressionmodel <- svyglm(watch ~ intervention*round + providertype*intervention, 
+                                 design = poststratweightedsurveydesign, 
+                                 family = binomial(link = "logit")) # logit because with log (log binomial, error message asking to provide starting coefficients)
+
+summary(svy_binregressionmodel)
+coef_summary <- summary(svy_binregressionmodel)$coefficients
+interaction_coefs <- coef_summary[grep("interventionintervention:roundpost", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- exp(log_coefs)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+# table of results
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = round(rr,2),
+  CI_Lower = round(rr_ci_lower,2),
+  CI_Upper = round(rr_ci_upper,2)
+)
+print(subgroup_effects, row.names = FALSE)
+
+# subset only unexplained fever
+fever <- watch_acute %>% filter(clinpres_broad=="unexplained fever")
+# log binomial regression
+poststratweightedsurveydesign <- svydesign(id = ~clusterID, weights = ~poststratweight, data = fever, nest = TRUE)
+# no sampling weights here yet, so unclear what to do
+svy_binregressionmodel <- svyglm(watch ~ intervention*round + providertype*intervention, 
+                                 design = poststratweightedsurveydesign, 
+                                 family = binomial(link = "logit")) # logit because with log (log binomial, error message asking to provide starting coefficients)
+
+summary(svy_binregressionmodel)
+coef_summary <- summary(svy_binregressionmodel)$coefficients
+interaction_coefs <- coef_summary[grep("interventionintervention:roundpost", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- exp(log_coefs)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+# table of results
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = round(rr,2),
+  CI_Lower = round(rr_ci_lower,2),
+  CI_Upper = round(rr_ci_upper,2)
+)
+print(subgroup_effects, row.names = FALSE)
+
+# subset only skin/soft tissue
+skin <- watch_acute %>% filter(clinpres_broad=="skin/soft tissue infection")
+# log binomial regression
+poststratweightedsurveydesign <- svydesign(id = ~clusterID, weights = ~poststratweight, data = skin, nest = TRUE)
+# no sampling weights here yet, so unclear what to do
+svy_binregressionmodel <- svyglm(watch ~ intervention*round + providertype*intervention, 
+                                 design = poststratweightedsurveydesign, 
+                                 family = binomial(link = "logit")) # logit because with log (log binomial, error message asking to provide starting coefficients)
+
+summary(svy_binregressionmodel)
+coef_summary <- summary(svy_binregressionmodel)$coefficients
+interaction_coefs <- coef_summary[grep("interventionintervention:roundpost", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- exp(log_coefs)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+# table of results
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = round(rr,2),
+  CI_Lower = round(rr_ci_lower,2),
+  CI_Upper = round(rr_ci_upper,2)
+)
+print(subgroup_effects, row.names = FALSE)
+
+# subset only STI
+sti <- watch_acute %>% filter(clinpres_broad=="sexually transmitted infection")
+# log binomial regression
+poststratweightedsurveydesign <- svydesign(id = ~clusterID, weights = ~poststratweight, data = sti, nest = TRUE)
+# no sampling weights here yet, so unclear what to do
+svy_binregressionmodel <- svyglm(watch ~ intervention*round, 
+                                 design = poststratweightedsurveydesign, 
+                                 family = binomial(link = "logit")) # logit because with log (log binomial, error message asking to provide starting coefficients)
+
+summary(svy_binregressionmodel)
+coef_summary <- summary(svy_binregressionmodel)$coefficients
+interaction_coefs <- coef_summary[grep("interventionintervention:roundpost", rownames(coef_summary)), , drop = FALSE] # keep only the interaction terms for the effect of the intervention (round=post & intervention = intervention) by type of provider
+log_coefs <- interaction_coefs[, 1]  # Coefficients
+se_coefs <- interaction_coefs[, 2]  # Standard errors
+ci_lower <- log_coefs - 1.96 * se_coefs
+ci_upper <- log_coefs + 1.96 * se_coefs
+rr <- exp(log_coefs)
+rr_ci_lower <- exp(ci_lower)
+rr_ci_upper <- exp(ci_upper)
+# table of results
+subgroup_effects <- data.frame(
+  Providertype = rownames(interaction_coefs),
+  RiskRatio = round(rr,2),
+  CI_Lower = round(rr_ci_lower,2),
+  CI_Upper = round(rr_ci_upper,2)
+)
+print(subgroup_effects, row.names = FALSE)
+
+#### 9. FIGURE 2. EFFECT ON POPULATION-WIDE ABU BY SITE: HCU frequency*ABU prevalence####
+# generate a table with prevalence per type of provider per site
+# option 1: use weighting for hcu and cluster size 
+# any antibiotic
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset, weights = ~weight)
+surveydesign <- update(surveydesign, prevalence_ab = n_antibiotic / n_surveys)
+prevalence_estimates <- svyby(~ prevalence_ab,  ~intervention + round + providertype + site,
+                                           design = surveydesign,
+                                           svymean,  # Function to calculate means
+                                           vartype = c("ci")  # Include confidence intervals
+)
+prevalence_estimates$prevalence_ab <- prevalence_estimates$prevalence_ab
+prevalence_estimates$ci_l_ab <- prevalence_estimates$ci_l
+prevalence_estimates$ci_u_ab <- prevalence_estimates$ci_u
+prevalence_estimates <- prevalence_estimates %>%  filter(intervention != "control") %>% select(-ci_l, -ci_u, -intervention)
+prevalence_estimates
+# watch antibiotics
+surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset, weights = ~weight)
+surveydesign <- update(surveydesign, prevalence_watch = n_watch / n_surveys)
+watchprevalence_estimates <- svyby(~ prevalence_watch,  ~intervention + round + providertype + site,
+                              design = surveydesign,
+                              svymean,  # Function to calculate means
+                              vartype = c("ci")  # Include confidence intervals
+)
+watchprevalence_estimates$prevalence_watch <-watchprevalence_estimates$prevalence_watch
+watchprevalence_estimates$ci_l_watch <- watchprevalence_estimates$ci_l
+watchprevalence_estimates$ci_u_watch <- watchprevalence_estimates$ci_u
+watchprevalence_estimates <- watchprevalence_estimates %>%  filter(intervention != "control") %>% select(-ci_l, -ci_u, -intervention)
+watchprevalence_estimates
+# merge any ab and watch
+prevalence_estimates <- merge(prevalence_estimates, watchprevalence_estimates, by = c("round", "providertype", "site"))
+prevalence_estimates
+
+# add column for access
+prevalence_estimates$prevalence_access <- prevalence_estimates$prevalence_ab - prevalence_estimates$prevalence_watch
+
+# option 2: use post stratification weights, considering hcu and total population -> yields similar results, but weighing per cluster, option 1, is more accurate yet slightly less precise
+# poststratweightedsurveydesign <- svydesign(id = ~clusterID, weights = ~poststratweight, data = watch_acute, nest = TRUE)
+# prevalence_estimates <- svyby(~antibiotic, by = ~intervention + round + providertype + site, 
+#                               design = poststratweightedsurveydesign, 
+#                               FUN = svymean, 
+#                               vartype = c("ci"),  # Include confidence intervals
+#                               na.rm = TRUE)
+# prevalence_estimates$prevalence <- round(prevalence_estimates$antibiotic*100, 1)
+# prevalence_estimates$ci_l <- round(prevalence_estimates$ci_l*100, 1)
+# prevalence_estimates$ci_u <- round(prevalence_estimates$ci_u*100, 1)
+# prevalence_estimates$ci <- paste(prevalence_estimates$ci_l,"-",prevalence_estimates$ci_u)
+# prevalence_estimates <- prevalence_estimates %>%  filter(intervention != "control") %>% select(-ci_l, -ci_u, -antibiotic)
+# prevalence_estimates
+
+# import table with provider type-specific healthcare utilisation rates (per 1000 inhabitants per month)
+hcu <- read_excel("hcu.xlsx")
+hcu <- hcu %>%  mutate(
+  freq_1mo = as.numeric(freq_1mo),
+  ci_lower_1mo = as.numeric(ci_lower_1mo),
+  ci_upper_1mo = as.numeric(ci_upper_1mo))
+
+
+# merge tables with hcu and those with the prevalence of ABU
+AMUrate <- merge(hcu, prevalence_estimates, by = c("providertype", "site"))
+
+# get rid of negative confidence intervals
+AMUrate$ci_l_watch[AMUrate$ci_l_watch<0] <- 0
+
+# add standard errors
+AMUrate$se_hcu <- (log(AMUrate$ci_upper_1mo) - log(AMUrate$ci_lower_1mo)) / (2 * 1.96)
+AMUrate$se_ab <- (log(AMUrate$ci_u_ab) - log(AMUrate$ci_l_ab)) / (2 * 1.96)
+AMUrate$se_watch <- (log(AMUrate$ci_u_watch) - log(AMUrate$ci_l_watch)) / (2 * 1.96)
+
+# central estimate any ab
+AMUrate$rate_ab <- AMUrate$prevalence_ab * AMUrate$freq_1mo
+# ci
+AMUrate$se_rate_ab <- sqrt(AMUrate$se_hcu^2 + AMUrate$se_ab^2)
+AMUrate$rate_ab_ci_l <- exp(log(AMUrate$rate_ab) - 1.96 * AMUrate$se_rate_ab)
+AMUrate$rate_ab_ci_u <- exp(log(AMUrate$rate_ab) + 1.96 * AMUrate$se_rate_ab)
+# central estimate watch
+AMUrate$rate_watch <- AMUrate$prevalence_watch * AMUrate$freq_1mo
+# ci
+AMUrate$se_rate_watch <- sqrt(AMUrate$se_hcu^2 + AMUrate$se_watch^2)
+AMUrate$rate_watch_ci_l <- exp(log(AMUrate$rate_watch) - 1.96 * AMUrate$se_rate_watch)
+AMUrate$rate_watch_ci_u <- exp(log(AMUrate$rate_watch) + 1.96 * AMUrate$se_rate_watch)
+# central estimate Access
+AMUrate$rate_access <- AMUrate$prevalence_access * AMUrate$freq_1mo
+
+# keep only essential values
+AMUrate <- AMUrate %>% select(providertype, site, round, rate_ab, rate_ab_ci_l, rate_ab_ci_u, rate_watch, rate_watch_ci_l, rate_watch_ci_u, rate_access)
+AMUrate
+# to long format
+AMUrate_long <- AMUrate %>%
+  pivot_longer(
+    cols = c(rate_ab, rate_watch, rate_access), 
+    names_to = "antibiotic",        
+    values_to = "rate"              
+  ) %>%
+  pivot_longer(
+    cols = c(rate_ab_ci_l, rate_watch_ci_l),  
+    names_to = "ci_type_l", 
+    values_to = "ci_l"
+  ) %>%
+  pivot_longer(
+    cols = c(rate_ab_ci_u, rate_watch_ci_u),  
+    names_to = "ci_type_u", 
+    values_to = "ci_u"
+  ) %>%
+  mutate(
+    antibiotic = case_when(
+      antibiotic == "rate_ab" ~ "ab",
+      antibiotic == "rate_watch" ~ "watch",
+      antibiotic == "rate_access" ~ "access"
     )
-  )
+  ) %>%
+  select(-ci_type_l, -ci_type_u)  # Remove unnecessary columns
+AMUrate_long <- AMUrate_long %>%
+  distinct(providertype, site, round, antibiotic, .keep_all = TRUE)
+AMUrate_long
 
-write_xlsx(prevalence_estimates, "prevalence_estimates.xlsx")
-# make plot
-ggplot(prevalence_estimates, aes(x = prevalence, y = position)) +
-  # Points for central estimates
-  geom_point(
-    aes(color = interventionround), 
-    size = 3
-  ) +
-  # Error bars for confidence intervals
-  geom_errorbarh(
-    aes(xmin = ci_l, xmax = ci_u, color = interventionround), 
-    height = 0.2
-  ) +
-  # Customize y-axis to display clinpres_broads
-  scale_y_continuous(
-    breaks = as.numeric(unique(prevalence_estimates$subgroup)),
-    labels = levels(prevalence_estimates$subgroup),
-    name = "Subgroup"
-  ) +
-  scale_x_continuous(
-    labels = scales::percent_format(scale = 1),
-    limits = c(0, 100),
-    name = "Prevalence (%)"
-  ) +
-  scale_color_manual(values = c(
-    "intervention, baseline" = "#2166AC", # Blue for before (Economist palette)
-    "intervention, post" = "#B2182B",  # Red for after (Economist palette)
-    "intervention, baseline" = "lightgray", # Light gray for control before
-    "intervention, post" = "darkgray"    # Dark gray for control after
-  )) +
-  # Labels and theme
-  labs(
-    color = "interventionround"
-  ) +
-  theme_minimal() +
-  theme(
-    axis.text.y = element_text(size = 10),
-    axis.title = element_text(size = 12),
-    legend.position = "bottom",
-    panel.grid.major.y = element_blank(),  # Remove horizontal grid lines
-    panel.grid.major.x = element_line(color = "gray90")  # Keep vertical grid lines
-  )
+# overall rate of use
+summary_AMUrate <- AMUrate %>%
+  group_by(site, round) %>%
+  summarise(rate_ab = sum(rate_ab), rate_ab_ci_l = sum(rate_ab_ci_l), rate_ab_ci_u = sum(rate_ab_ci_u),
+            rate_watch = sum(rate_watch), rate_watch_ci_l = sum(rate_watch_ci_l), rate_watch_ci_u = sum(rate_watch_ci_u))
+summary_AMUrate
 
-ggplot(prevalence_estimates, aes(x = prevalence, y = position)) +
-  # Points for central estimates
-  geom_point(
-    aes(color = prevalence_estimates$interventionround), 
-    size = 3
-  ) +
-  # Error bars for confidence intervals
-  geom_errorbarh(
-    aes(xmin = prevalence_estimates$ci_l, xmax = ci_u, color = prevalence_estimates$interventionround), 
-    height = 0.2
-  ) +
-  # Customize scales
-  scale_y_continuous(
-    breaks = as.numeric(prevalence_estimates$subgroup),
-    labels = prevalence_estimates$subgroup,
-    name = "Subgroups"
-  ) +
-  scale_x_continuous(
-    labels = scales::percent_format(scale = 1),
-    limits = c(0, 100),
-    name = "Prevalence (%)"
-  ) +
-  scale_color_manual(values = c(
-    "intervention, baseline" = "#2166AC", # Blue for before (Economist palette)
-    "intervention, post" = "#B2182B",  # Red for after (Economist palette)
-    "intervention, baseline" = "lightgray", # Light gray for control before
-    "intervention, post" = "darkgray"    # Dark gray for control after
-  )) +
-  # Labels and theme
-  labs(
-    color = "round"
-  ) +
+
+# make plot -> Fig2
+# rename provider type
+AMUrate_long <- AMUrate_long %>%  mutate(providertype = recode(providertype, "healthcentre_publique" = "health centre",
+                           "informalvendor" = "informal vendor",
+                           "privatepharmacy" = "community pharmacy/store",
+                           "privateclinic" = "private clinic"))
+# transform to factor vars and set order
+AMUrate_long$round <- factor(AMUrate_long$round, levels = c("baseline", "post"))
+AMUrate_long$antibiotic <- factor(AMUrate_long$antibiotic, levels = c("watch", "access"))
+AMUrate_long$providertype <- factor(AMUrate_long$providertype, levels = c("informal vendor", "community pharmacy/store","private clinic", "health centre"))
+AMUrate_long$antibiotic <- factor(AMUrate_long$antibiotic,
+                                    levels = rev(levels(AMUrate_long$antibiotic)))
+
+# convert dataframe to alluvial format
+AMUrate_long <- AMUrate_long %>% filter(antibiotic!="ab") 
+# create an ID for the flow between bars
+AMUrate_long$flow_id <- interaction(AMUrate_long$providertype, AMUrate_long$antibiotic, drop = TRUE)
+
+head(AMUrate_long)
+library(ggalluvial)
+is_alluvia_form(AMUrate_long, axes = 1, silent = FALSE) # dataframe structure is ok
+
+rates_sankey <- ggplot(data = AMUrate_long,
+       aes(x = round,
+           stratum = providertype,
+           alluvium = flow_id,
+           y = rate,
+           color = providertype)) +
+  geom_flow(aes(fill = antibiotic), alpha = 0.6, width = 0.2, tension = 0.5) +
+  geom_stratum(aes(fill = antibiotic), alpha = 0.9, width = 0.1) +
+  scale_fill_manual(name = "AWaRe group", values = c("watch" = "orange", "access" = "darkgreen"), na.translate = FALSE) +
+  scale_color_discrete(name = "provider type") +  # adds stratum to legend
   theme_minimal() +
-  theme(
-    axis.text.y = element_text(size = 10),
-    axis.title = element_text(size = 12),
-    legend.position = "bottom",
-    panel.grid.major.y = element_blank(),  # Remove horizontal grid lines
-    panel.grid.major.x = element_line(color = "gray90")  # Keep vertical grid lines
-  )
+  labs(y = "Antibiotic treatment episodes per 1000 inhabitants per month", x = NULL) +
+  facet_wrap(~ site) # , scales = "free_y"
+rates_sankey
+ggsave("rates_sankey.jpeg", plot = rates_sankey, width = 9, height = 7, dpi = 300)
