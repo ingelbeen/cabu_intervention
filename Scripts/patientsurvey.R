@@ -1294,8 +1294,8 @@ clinpres_watchcounts <- watch_acute %>%
 clinpres_watchcounts <- clinpres_watchcounts %>% select(c("clinpres_broad","round","combined_counts_Kimpese_control","percentage_watch_1_Kimpese_control",
                                                         "combined_counts_Kimpese_intervention", "percentage_watch_1_Kimpese_intervention", "combined_counts_Nanoro_control",
                                                         "percentage_watch_1_Nanoro_control", "combined_counts_Nanoro_intervention","percentage_watch_1_Nanoro_intervention" )) 
-write.table(summary_watchcounts, "clinpres_watchcounts.txt")
-write_xlsx(summary_watchcounts, "clinpres_watchcounts.xlsx")
+write.table(clinpres_watchcounts, "clinpres_watchcounts.txt")
+write_xlsx(clinpres_watchcounts, "clinpres_watchcounts.xlsx")
 
 
 #### 6. TWO STAGE CLUSTER ADJUSTED PREVALENCE ESTIMATES ####
@@ -1487,22 +1487,22 @@ rr
 ci_rr <- exp(coeci)
 ci_rr
 
-# with three types of providers in the model: health centre, over-the-counter at private pharmacy, informal vendor
-surveydesign_combinedpublicprivateclinics <- svydesign(id = ~clusterID, data = watch_acute_offset_combinedpublicprivateclinics, 
-                          # weights = ~weight # for now no weighing because surveys still ongoing in some clusters, so that the few surveys there get too much weight
-)
-# fit model
-nb_model_anyAB <- svyglm(n_antibiotic ~ offset(log(pop_patients)) + round * intervention + providertype_publicprivateclinicscombined, #+ agegroup?  + site
-                         design = surveydesign_combinedpublicprivateclinics, 
-                         family = poisson)
-summary(nb_model_anyAB)
-# get the model coefficients
-coef <- coef(nb_model_anyAB)
-coeci <- confint(nb_model_anyAB)
-rr <- exp(coef)
-rr 
-ci_rr <- exp(coeci)
-ci_rr
+# # with three types of providers in the model: health centre, over-the-counter at private pharmacy, informal vendor
+# surveydesign_combinedpublicprivateclinics <- svydesign(id = ~clusterID, data = watch_acute_offset_combinedpublicprivateclinics, 
+#                           # weights = ~weight # for now no weighing because surveys still ongoing in some clusters, so that the few surveys there get too much weight
+# )
+# # fit model
+# nb_model_anyAB <- svyglm(n_antibiotic ~ offset(log(pop_patients)) + round * intervention + providertype_publicprivateclinicscombined, #+ agegroup?  + site
+#                          design = surveydesign_combinedpublicprivateclinics, 
+#                          family = poisson)
+# summary(nb_model_anyAB)
+# # get the model coefficients
+# coef <- coef(nb_model_anyAB)
+# coeci <- confint(nb_model_anyAB)
+# rr <- exp(coef)
+# rr 
+# ci_rr <- exp(coeci)
+# ci_rr
 
 # 5.2 log binomial regression using the survey package
 # WATCH
@@ -2129,6 +2129,48 @@ prevalence_estimates_clinpres$ci <- paste(prevalence_estimates_clinpres$ci_l,"-"
 prevalence_estimates_clinpres <- prevalence_estimates_clinpres %>%  select(-ci_l, -ci_u, -antibiotic)
 prevalence_estimates_clinpres
 write_xlsx(prevalence_estimates_clinpres, "prevalence_estimates_clinpres.xlsx")
+# to wide format
+library(tidyr)
+prevalence_estimates_clinpres_wide <- prevalence_estimates_clinpres %>%
+  pivot_wider(
+    id_cols = c(clinpres_broad, round),
+    names_from = intervention,
+    values_from = c(prevalence, ci),
+    names_glue = "{.value}_{intervention}") %>%
+  select(clinpres_broad, round, prevalence_control, ci_control, prevalence_intervention, ci_intervention)
+prevalence_estimates_clinpres_wide
+write_xlsx(prevalence_estimates_clinpres_wide, "prevalence_estimates_clinpres_wide.xlsx")
+
+# same but by site
+poststratweightedsurveydesign <- svydesign(id = ~clusterID, weights = ~poststratweight, data = watch_acute, nest = TRUE)
+prevalence_estimates_clinpres_site <- svyby(~antibiotic, by = ~intervention + round + clinpres_broad + site, 
+                                       design = poststratweightedsurveydesign, 
+                                       FUN = svymean, 
+                                       vartype = c("ci"),  # Include confidence intervals
+                                       na.rm = TRUE)
+prevalence_estimates_clinpres_site$prevalence <- round(prevalence_estimates_clinpres_site$antibiotic*100, 1)
+prevalence_estimates_clinpres_site$ci_l <- round(prevalence_estimates_clinpres_site$ci_l*100, 1)
+prevalence_estimates_clinpres_site$ci_u <- round(prevalence_estimates_clinpres_site$ci_u*100, 1)
+prevalence_estimates_clinpres_site$ci <- paste(prevalence_estimates_clinpres_site$ci_l,"-",prevalence_estimates_clinpres_site$ci_u)
+prevalence_estimates_clinpres_site <- prevalence_estimates_clinpres_site %>%  select(-ci_l, -ci_u, -antibiotic)
+prevalence_estimates_clinpres_site
+# to wide format
+library(tidyr)
+library(dplyr)
+
+prevalence_estimates_clinpres_site_wide <- prevalence_estimates_clinpres_site %>%
+  pivot_wider(
+    id_cols = c(clinpres_broad, round),
+    names_from = c(site, intervention),
+    values_from = c(prevalence, ci),
+    names_glue = "{.value}_{site}_{intervention}"
+  ) %>%
+  select(
+    clinpres_broad,round,
+    tidyselect::matches("prevalence_.*_control"), tidyselect::matches("ci_.*_control"),
+    tidyselect::matches("prevalence_.*_intervention"), tidyselect::matches("ci_.*_intervention")
+  )
+write_xlsx(prevalence_estimates_clinpres_site_wide, "prevalence_estimates_clinpres_site.xlsx")
 
 # estimate RR
 watch_acute$clinpres_broad <- relevel(watch_acute$clinpres_broad, ref = "other")
@@ -2670,11 +2712,17 @@ rates_sankey <- ggplot(data = AMUrate_long,
            y = rate,
            color = providertype)) +
   geom_flow(aes(fill = antibiotic), alpha = 0.6, width = 0.2, tension = 0.5) +
-  geom_stratum(aes(fill = antibiotic), alpha = 0.9, width = 0.1) +
+  geom_stratum(aes(fill = antibiotic), alpha = 0.9, width = 0.15) +
   scale_fill_manual(name = "AWaRe group", values = c("watch" = "orange", "access" = "darkgreen"), na.translate = FALSE) +
   scale_color_discrete(name = "provider type") +  # adds stratum to legend
   theme_minimal() +
   labs(y = "Antibiotic treatment episodes per 1000 inhabitants per month", x = NULL) +
-  facet_wrap(~ site) # , scales = "free_y"
+  facet_wrap(~ site) +# , scales = "free_y"
+  theme(
+    panel.spacing = unit(0, "lines"),
+    plot.margin = margin(10, 10, 10, 10),
+    panel.grid.major.x = element_blank(),  # remove vertical gridlines
+    panel.grid.minor.x = element_blank()   # remove minor vertical gridlines
+  )
 rates_sankey
-ggsave("rates_sankey.jpeg", plot = rates_sankey, width = 9, height = 7, dpi = 300)
+ggsave("rates_sankey.jpeg", plot = rates_sankey, width = 6, height = 5, dpi = 300)
