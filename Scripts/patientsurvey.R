@@ -224,8 +224,8 @@ patient_kim$clinpres[patient_kim$illness_spec=="fever" & grepl("rash", patient_k
 
 # check if still some not assigned and what symptoms these have
 table(patient_kim$illness_other[patient_kim$illness=="yes_acute_illness"&is.na(patient_kim$clinpres)], useNA = "always")
-symptoms_no_diagn <- patient_kim %>% filter(illness=="yes_acute_illness"&is.na(clinpres)) %>% select(providertype, illness_spec, illness_other, symptoms, symptoms_other, diag_test, diag_test_other, diag_spec_other)
-write_xlsx(symptoms_no_diagn, "symptoms_no_diagn.xlsx") # checked, remaining are minor complaints or unspecific symptoms
+# symptoms_no_diagn <- patient_kim %>% filter(illness=="yes_acute_illness"&is.na(clinpres)) %>% select(providertype, illness_spec, illness_other, symptoms, symptoms_other, diag_test, diag_test_other, diag_spec_other)
+# write_xlsx(symptoms_no_diagn, "symptoms_no_diagn.xlsx") # checked, remaining are minor complaints or unspecific symptoms
 
 # only when no other diagnostic entered, also add those labelled as unknown
 patient_kim$clinpres[grepl("unknown", patient_kim$quel_tait_le_diagnostic_final, ignore.case = TRUE) & is.na(patient_kim$clinpres)] <- "non-specific symptoms or complaints"
@@ -234,6 +234,33 @@ table(patient_kim$clinpres[patient_kim$illness=="yes_acute_illness"], patient_ki
 clinpresdistribution <- as.data.frame(table(patient_kim$clinpres[patient_kim$illness=="yes_acute_illness"], patient_kim$providertype[patient_kim$illness=="yes_acute_illness"], useNA = "always"))
 clinpresdistribution
 write_xlsx(clinpresdistribution, "clinpresdistribution.xlsx")
+
+# check if illness and clinical presentation match (an infection or wound is typically considered acute illness)
+table(patient_kim$clinpres, patient_kim$illness)
+check_clinpres <- patient_kim %>% filter(!is.na(clinpres) & illness!="yes_acute_illness") %>% group_by(clinpres, illness, illness_spec, illness_other, symptoms, diag_test, `diag_test/RDT_malaria`, quel_tait_le_diagnostic_final, diag_spec_other, absprescribed, providertype, nantibiotics, round, intervention) %>% summarise(n())
+# clean contradicting ones
+patient_kim$clinpres[patient_kim$clinpres=="bronchiolitis" & patient_kim$illness=="no_noillness"] <- NA # bronchiolitis as final diagnostic but nothing else recorded, no symptoms
+patient_kim$illness[patient_kim$diag_spec_other=="infection genital" & patient_kim$illness=="no_noillness"] <- "yes_acute_illness"
+patient_kim$clinpres[patient_kim$diag_spec_other=="infection genital" & patient_kim$illness=="no_noillness"] <- "sexually transmitted infection"
+patient_kim$illness[patient_kim$diag_spec_other=="infection genitale" & patient_kim$illness=="no_noillness"] <- "yes_acute_illness"
+patient_kim$clinpres[patient_kim$diag_spec_other=="infection genitale" & patient_kim$illness=="no_noillness"] <- "sexually transmitted infection"
+patient_kim$illness[patient_kim$diag_spec_other=="infection urogenital" & patient_kim$illness=="no_noillness"] <- "yes_acute_illness"
+patient_kim$clinpres[patient_kim$diag_spec_other=="infection urogenital" & patient_kim$illness=="no_noillness"] <- "sexually transmitted infection"
+patient_kim$illness[patient_kim$diag_spec_other=="infection urogenitale" & patient_kim$illness=="yes_chronic"] <- "yes_acute_illness"
+patient_kim$clinpres[patient_kim$diag_spec_other=="infection genitale" & patient_kim$illness=="yes_chronic"] <- "sexually transmitted infection"
+patient_kim$illness[patient_kim$diag_spec_other=="syndrome infectieux" & patient_kim$illness=="yes_chronic"] <- "yes_acute_illness"
+patient_kim$illness[patient_kim$diag_spec_other=="syndrome infectieux" & patient_kim$illness=="yes_chonic"] <- "yes_acute_illness"
+patient_kim$illness[patient_kim$diag_spec_other=="infection sexuellement transmissibles" & patient_kim$illness=="no_noillness"] <- "yes_acute_illness"
+patient_kim$illness[grepl("plai", patient_kim$diag_spec_other)==T & patient_kim$illness=="no_noillness" & patient_kim$clinpres=="skin/soft tissue infection"] <- "yes_acute_illness"
+patient_kim$illness[grepl("dermatos", patient_kim$diag_spec_other)==T & patient_kim$illness=="yes_chronic" & patient_kim$clinpres=="skin/soft tissue infection"] <- "yes_acute_illness"
+patient_kim$illness[grepl("plai", patient_kim$diag_spec_other)==T & patient_kim$illness=="yes_chronic" & patient_kim$clinpres=="skin/soft tissue infection"] <- "yes_acute_illness"
+patient_kim$illness[grepl("ulcèr", patient_kim$diag_spec_other)==T & patient_kim$illness=="yes_chronic" & patient_kim$clinpres=="skin/soft tissue infection"] <- "yes_acute_illness"
+patient_kim$illness[grepl("typhoid", patient_kim$quel_tait_le_diagnostic_final)==T & patient_kim$illness=="yes_chronic"] <- "yes_acute_illness"
+patient_kim$illness[grepl("carrie dentaires", patient_kim$diag_spec_other)==T & patient_kim$illness=="yes_chronic"] <- "yes_acute_illness"
+patient_kim$illness[grepl("infection urinaire associee", patient_kim$diag_spec_other)==T & patient_kim$illness=="yes_chronic"] <- "yes_acute_illness"
+patient_kim$illness[grepl("appendicite", patient_kim$diag_spec_other)==T & patient_kim$illness=="yes_chronic"] <- "yes_acute_illness"
+patient_kim$illness[grepl("infection urinaire", patient_kim$diag_spec_other)==T & patient_kim$illness=="yes_chronic"] <- "yes_acute_illness"
+patient_kim$illness[patient_kim$diag_spec_other=="prostatite" & patient_kim$illness=="yes_chronic"] <- "yes_acute_illness"
 
 # group clinical presentations in broad categories
 patient_kim$clinpres_broad <- patient_kim$clinpres
@@ -639,7 +666,7 @@ patient_nan$visit.q1_date_entretient[is.na(patient_nan$surveydate)]
 # patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 9, 2023"] <- "2023-03-09"
 # patient_nan$surveydate[patient_nan$visit.q1_date_entretient=="Mar 13, 2023"] <- "2023-03-13"
 
-# check distribuition
+# check survey dates
 hist(patient_nan$surveydate, 
      main = "Histogram of Survey Dates", 
      xlab = "Survey Date",
@@ -846,9 +873,9 @@ patient_nan$clinpres[grepl("15", patient_nan$consultation.q19_signeClinique) & i
 patient_nan$clinpres[grepl("blessure", patient_nan$consultation.q19_AutresigneClinique) & is.na(patient_nan$clinpres)] <- "wound" 
 patient_nan$clinpres[grepl("maux de bas ", patient_nan$consultation.q19_AutresigneClinique) & is.na(patient_nan$clinpres)] <- "unexplained gastro-intestinal" # to check
 patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 18" & is.na(patient_nan$consultation.q22_resultaTestDiagnostic) & is.na(patient_nan$clinpres)] <- "skin/soft tissue infection" # the remaining "other" symptoms are non specific
-# at this point, no specific signs and symptoms are remaining -> any malaria positive test is labelled malaria in patients with reported symptoms
+# no specific signs and symptoms are remaining -> any malaria positive test is labelled malaria in patients with reported symptoms
 patient_nan$clinpres[!is.na(patient_nan$consultation.q19_signeClinique) & patient_nan$consultation.q19_signeClinique != "" & patient_nan$consultation.q22_resultaTestDiagnostic==1 & is.na(patient_nan$clinpres)] <- "malaria" 
-# fever without pos malaria test result labelled as unexplained fever
+# fever without pos malaria test result and no signs/symptoms indicating specific infection focus -> labelled as unexplained fever
 patient_nan$clinpres[grepl("1 ", patient_nan$consultation.q19_signeClinique) & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic)) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
 patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="8 13 1" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic)) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
 patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="8 7 1" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic)) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
@@ -950,6 +977,7 @@ watchnan$clusterID <- sapply(watchnan$cluster_villageprovider, function(clusterI
 table(watchnan$clusterID)
 
 #### 3. COMBINED KIMPESE AND NANORO DATA ####
+# 3.1 in a one-row-per-patient format
 watchnan <- as.data.frame(watchnan)
 watchkim <- as.data.frame(watchkim)
 
@@ -1121,6 +1149,23 @@ head(watch_acute_clinpres_offset)
 # export dataframe with one observation per patient and the aggregated dataframe by provider
 write.csv(watch_acute, "watch_acute.csv")
 write.csv(watch_acute_offset, "watch_acute_offset.csv")
+
+# 3.2 in a format that has combined patients and one row per antibiotic 
+nan_short <- nan %>% select(meta.instanceID, providertype, providernr, round, intervention, agegroup, sex, educationlevel, illness, surveydate, village.cluster, clusterID, clinpres, clinpres_broad, abgeneric, Class, aware)
+names(nan_short)[names(nan_short) == "meta.instanceID"] <- "patient_id"
+nan_short$site <- "Nanoro"
+
+kim_short <- kim %>% select(`_uuid`, providertype, providernr, round, intervention, agegroup, sex, educationlevel, illness, today, choices_cluster, clusterID, clinpres, clinpres_broad, abgeneric, Class, aware)
+kim_short <- kim_short %>%  rename(patient_id = `_uuid`)
+names(kim_short)[names(kim_short) == "today"] <- "surveydate"
+names(kim_short)[names(kim_short) == "choices_cluster"] <- "village.cluster"
+kim_short$surveydate <- as.Date(kim_short$surveydate)
+kim_short$site <- "Kimpese"
+# merge both
+patient_ab <- rbind(kim_short, nan_short)
+
+# export long format
+write_xlsx(patient_ab, "patient_ab.xlsx")
 
 #### 4. DESCRIPTION PARTICIPANTS ####
 # n surveys
@@ -2726,3 +2771,39 @@ rates_sankey <- ggplot(data = AMUrate_long,
   )
 rates_sankey
 ggsave("rates_sankey.jpeg", plot = rates_sankey, width = 6, height = 5, dpi = 300)
+
+#### 10. CHECK IF DIFFERENCES IN AU PER MONTH ####
+patientwide <- patient_ab %>% filter(illness=="yes_acute_illness" & providertype!="informalstore") %>%
+  group_by(site, providertype, surveydate, patient_id) %>%
+  summarise(check=n(), n_ab = sum(!is.na(abgeneric) & abgeneric != ""),  # count of abgeneric values
+    antibiotic = any(!is.na(abgeneric) & abgeneric != ""))  # TRUE if any antibiotic present
+patientwide
+patientwide <- patientwide %>%  mutate(month = format(surveydate, "%Y-%m"))   # e.g. "2025-10"
+prevalence <- patientwide %>%
+  group_by(month, site, providertype) %>%
+  summarise(
+    n_patients = n(),
+    n_with_antibiotic = sum(antibiotic),
+    prevalence = n_with_antibiotic / n_patients
+  )
+prevalence
+prevalence <- prevalence %>%  mutate(prevalence_pct = 100 * prevalence)
+
+# exclude Oct 2022, since few observations
+prevalence <- prevalence %>% filter(month!="2022-10")
+
+ggplot(prevalence, aes(x = month, y = prevalence_pct, fill = site)) +
+  geom_col(position = "dodge") +   # bar chart
+  facet_grid(providertype ~ site) +  # facets: rows = providertype, columns = site
+  scale_y_continuous(labels = scales::percent_format(scale = 1)) +  # show y as %
+  labs(
+    title = "Antibiotic Prevalence by Month, Site, and Provider Type",
+    x = "Month",
+    y = "Prevalence (%)",
+    fill = "Site"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(size = 14, face = "bold")
+  )
