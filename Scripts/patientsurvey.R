@@ -595,6 +595,8 @@ write.csv(kim_anon, 'kim_anon.csv')
 #### 2. IMPORT DATA NANORO #### 
 patient_nan <- read.csv("db/patientsurvey/visit_EXIT_registration__Nanoro__2022__results.csv")
 # patient_nan <- read_excel("db/patientsurvey/visit_EXIT_registration__Nanoro__2022__results.xlsx")
+checked_clinpres_nan <- read_excel("db/patientsurvey/cleaned clinicap presentations Nanoro/Visit_Exit_231025.xls") # the clinical presentations were checked one by one (incl. photo of prescription, symptoms reported, recorded diagnosis) 
+
 str(patient_nan) # every recorded antibiotic is there in a column
 # show variable names
 colnames(patient_nan)
@@ -735,34 +737,31 @@ patient_nan <- patient_nan %>%
     village.q7_niveauEducationPatient == 2 ~ "primary",
     village.q7_niveauEducationPatient == 3 ~ "secondary",
     village.q7_niveauEducationPatient == 4 ~ "higher",
-    TRUE ~ as.character(village.q7_niveauEducationPatient)  # Default case
+    TRUE ~ as.character(village.q7_niveauEducationPatient)  
   )) %>%
   mutate(educationlevel = factor(educationlevel, levels = c("none", "primary", "secondary", "higher"))) %>%
   mutate(providertype = case_when(
     dispensateur.q9_typeDispensateur == 1 ~ "healthcentre_publique",
-    dispensateur.q9_typeDispensateur == 2 ~ "privatepharmacy", # these are dépôts, potentially to analyse separately but smallest groups of providers
+    dispensateur.q9_typeDispensateur == 2 ~ "privatepharmacy", # these are dépôts, i.e. licensed medicine stores, not analysing since de facto community pharmacies 
     dispensateur.q9_typeDispensateur == 3 ~ "privatepharmacy", # these are official community pharmacies
     dispensateur.q9_typeDispensateur == 4 ~ "informalvendor",
-    TRUE ~ as.character(dispensateur.q9_typeDispensateur)  # Default case
+    TRUE ~ as.character(dispensateur.q9_typeDispensateur) 
   )) %>%
   mutate(illness = case_when(
     consultation.q18_suite_maladie == 1 ~ "yes_acute_illness",
     consultation.q18_suite_maladie == 2 ~ "yes_chronic", # these are dépôts, potentially to analyse separately but smallest groups of providers
     consultation.q18_suite_maladie == 3 ~ "no_animalhealth", # these are official community pharmacies
     consultation.q18_suite_maladie == 4 ~ "no_noillness",
-    TRUE ~ as.character(consultation.q18_suite_maladie)  # Default case
+    TRUE ~ as.character(consultation.q18_suite_maladie)  
   ))
 
-table(patient_nan$sex, useNA = "always")
-table(patient_nan$educationlevel, useNA = "always")
-table(patient_nan$providertype, useNA = "always")
-table(patient_nan$illness, useNA = "always")
+# if the visit to a private pharmacy followed a health centre consultation with prescription, it is considered a health centre visit and not a pharmacy visit as such
+patient_nan$providertype[patient_nan$dispensateur.q12_visite_prescript_formel==1] <- "healthcentre_publique"
 
 # number of each dispensor (only applicable to informal medicine vendors. of other provider types there are max one per cluster)
-table(patient_nan$dispensateur.q10_num_vendeur_informel)
-patient_nan$providernr <- as.numeric(gsub("\\D", "", patient_nan$dispensateur.q10_num_vendeur_informel))
-table(patient_nan$providernr, patient_nan$providertype, useNA = "always")
-
+patient_nan$providernr <- NA
+patient_nan$providernr[patient_nan$providertype=="informalvendor"] <- as.numeric(gsub("\\D", "", patient_nan$dispensateur.q10_num_vendeur_informel[patient_nan$providertype=="informalvendor"]))
+patient_nan$providernr[patient_nan$providertype=="informalvendor" & patient_nan$village.cluster=="NAZ" & patient_nan$providernr==0] <- 1 # some have a 0 as seq number, but should be 1 
 # show the clusters where no provider number has been entered - need to check those and assign a number
 table(patient_nan$village.cluster[is.na(patient_nan$providernr) & patient_nan$providertype=="informalvendor"], useNA = "always")
 # first check which clusters have just one medicine vendor
@@ -771,8 +770,12 @@ table(patient_nan$village.cluster[(is.na(patient_nan$providernr) | patient_nan$p
 clusters_with_just_one_vendor <- c("BAL", "BOU", "KOK", "LAL", "NAN", "NAZ", "PEL", "RAK", "SEG", "SOA", "SOU", "SOW")
 # replace in those with a value 1
 patient_nan$providernr[is.na(patient_nan$providernr) & patient_nan$providertype=="informalvendor" & patient_nan$village.cluster %in% clusters_with_just_one_vendor] <- 1
-# replace the provider number 0 with a provider number 1, if the village has just one vendor
-patient_nan$providernr[patient_nan$providernr==0 & patient_nan$village.cluster %in% clusters_with_just_one_vendor] <- 1
+# some more looked up one by one
+patient_nan$providernr[patient_nan$providertype=="informalvendor" & patient_nan$village.cluster=="NAZ" & is.na(patient_nan$providernr)] <- 2 # one missing in a sequence
+patient_nan$providernr[patient_nan$providertype=="informalvendor" & is.na(patient_nan$providernr) & patient_nan$visit.q1_date_entretient=="2022-12-02 00:00:00.0"] <- 1 # missing in a sequence
+patient_nan$providernr[patient_nan$providertype=="informalvendor" & is.na(patient_nan$providernr)] <- 1 # missing
+
+table(patient_nan$providernr, patient_nan$providertype, useNA = "always")
 
 # village cluster - both are the same (the open field was in case there would be one that the interviewer doesn't find on the list)
 table(patient_nan$village.cluster, useNA = "always")
@@ -791,7 +794,6 @@ table(patient_nan$round, useNA = "always")
 colnames(patient_nan)
 # remove all antimalarial variables, to simplify the data
 patient_nan <- patient_nan %>% select("meta.instanceID", "providertype", "providernr", "round", "intervention", "ageyears", "agegroup", "sex", "educationlevel", "illness", c(names(patient_nan)[26:45], "surveydate", "village.cluster"))
-
 
 # add a variable with a single clinical presentation that is based on the diagnosis given with the highest likelihood to result in antibiotic treatment
 # clinical presentations that are likely to result in antibiotic use are assigned first
@@ -827,7 +829,6 @@ patient_nan$clinpres[grepl("urinaire", patient_nan$consultation.q19_AutresigneCl
 patient_nan$clinpres[grepl("2", patient_nan$consultation.q19_signeClinique) & grepl("12", patient_nan$consultation.q19_signeClinique)==F & is.na(patient_nan$clinpres)] <- "acute respiratory infection" # "rhume" (value 2) but avoidng confusion with value 12
 patient_nan$clinpres[grepl("2 ", patient_nan$consultation.q19_signeClinique) & grepl("12", patient_nan$consultation.q19_signeClinique) & grepl("13", patient_nan$consultation.q19_signeClinique)==F & is.na(patient_nan$clinpres)] <- "acute respiratory infection" # "rhume" (value 2) together with 12 (fatigue), avoiding 12 along
 patient_nan$clinpres[grepl("3", patient_nan$consultation.q19_signeClinique) & grepl("13", patient_nan$consultation.q19_signeClinique)==F & is.na(patient_nan$clinpres)] <- "acute respiratory infection" # "toux" (value 3) but avoidng confusion with value 13
-patient_nan$clinpres[grepl("6", patient_nan$consultation.q19_signeClinique) & is.na(patient_nan$clinpres)] <- "unexplained gastro-intestinal" # "toux" (value 3) but avoidng confusion with value 13
 patient_nan$clinpres[grepl("10", patient_nan$consultation.q19_signeClinique) & is.na(patient_nan$clinpres)] <- "unexplained gastro-intestinal" # "toux" (value 3) but avoidng confusion with value 13
 patient_nan$clinpres[grepl("11", patient_nan$consultation.q19_signeClinique) & is.na(patient_nan$clinpres)] <- "unexplained gastro-intestinal" # "toux" (value 3) but avoidng confusion with value 13
 patient_nan$clinpres[grepl("1 ", patient_nan$consultation.q19_signeClinique) & grepl("11", patient_nan$consultation.q19_signeClinique)==F & patient_nan$consultation.q22_resultaTestDiagnostic!=1 & is.na(patient_nan$clinpres)] <- "unexplained fever" # excluding cases with positive malaria diagnostic test
@@ -848,9 +849,10 @@ patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 13 7" & is.n
 patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 14" & is.na(patient_nan$consultation.q22_resultaTestDiagnostic) & is.na(patient_nan$clinpres)] <- "skin/soft tissue infection" 
 patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 5" & is.na(patient_nan$clinpres)] <- "acute otitis media"  
 patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="5 1" & is.na(patient_nan$clinpres)] <- "acute otitis media"  
-patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="5" & is.na(patient_nan$clinpres)] <- "acute otitis media" # no fever, to check! 
-patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="4 5" & is.na(patient_nan$clinpres)] <- "acute otitis media" # no fever, to check! 
-patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="5 4" & is.na(patient_nan$clinpres)] <- "acute otitis media" # no fever, to check! 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="5" & is.na(patient_nan$clinpres)] <- "non-specific symptoms or complaints" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="5" & patient_nan$consultation.q25_maladieDiagnostic==""] <- "non-specific symptoms or complaints" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="4 5" & is.na(patient_nan$clinpres)] <- "pharyngitis" # no fever
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="5 4" & is.na(patient_nan$clinpres)] <- "pharyngitis" # no fever
 patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 2 7 12 13" & is.na(patient_nan$clinpres)] <- "acute respiratory infection"
 patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 3 13" & is.na(patient_nan$clinpres)] <- "acute respiratory infection"
 patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 3 4 8 13" & is.na(patient_nan$clinpres)] <- "acute respiratory infection"
@@ -873,6 +875,12 @@ patient_nan$clinpres[grepl("15", patient_nan$consultation.q19_signeClinique) & i
 patient_nan$clinpres[grepl("blessure", patient_nan$consultation.q19_AutresigneClinique) & is.na(patient_nan$clinpres)] <- "wound" 
 patient_nan$clinpres[grepl("maux de bas ", patient_nan$consultation.q19_AutresigneClinique) & is.na(patient_nan$clinpres)] <- "unexplained gastro-intestinal" # to check
 patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 18" & is.na(patient_nan$consultation.q22_resultaTestDiagnostic) & is.na(patient_nan$clinpres)] <- "skin/soft tissue infection" # the remaining "other" symptoms are non specific
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 16" & patient_nan$consultation.q25_maladieDiagnostic==""] <- "urinary tract infection"  
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 4" & patient_nan$consultation.q25_maladieDiagnostic==""& (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic))] <- "pharyngitis"  
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="7 1 4" & patient_nan$consultation.q25_maladieDiagnostic==""& (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic))] <- "pharyngitis"  
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 4 11" & patient_nan$consultation.q25_maladieDiagnostic==""& (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic))] <- "pharyngitis"  
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 4 6 7" & patient_nan$consultation.q25_maladieDiagnostic==""& (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic))] <- "pharyngitis"  
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="4 1 7 11" & patient_nan$consultation.q25_maladieDiagnostic==""& (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic))] <- "pharyngitis"  
 # no specific signs and symptoms are remaining -> any malaria positive test is labelled malaria in patients with reported symptoms
 patient_nan$clinpres[!is.na(patient_nan$consultation.q19_signeClinique) & patient_nan$consultation.q19_signeClinique != "" & patient_nan$consultation.q22_resultaTestDiagnostic==1 & is.na(patient_nan$clinpres)] <- "malaria" 
 # fever without pos malaria test result and no signs/symptoms indicating specific infection focus -> labelled as unexplained fever
@@ -884,13 +892,101 @@ patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="14 1" & (patie
 patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="7 1" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic)) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
 patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="7 13 1" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic)) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
 patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="8 1" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic)) & is.na(patient_nan$clinpres)] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="6 1" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic))& patient_nan$consultation.q25_maladieDiagnostic==""] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="7 6 1" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic)) & patient_nan$consultation.q25_maladieDiagnostic==""] <- "unexplained fever" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="8 6 1" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic)) & patient_nan$consultation.q25_maladieDiagnostic==""] <- "unexplained fever" 
+
 # remaining non-specific symptoms or complaints labelled as such
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="12 8" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic))] <- "non-specific symptoms or complaints" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="12 11" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic))] <- "non-specific symptoms or complaints"  
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="11 12 8" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic))] <- "non-specific symptoms or complaints"  
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="12 7" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic))] <- "non-specific symptoms or complaints"  
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="12 8 7" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic))] <- "non-specific symptoms or complaints"  
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 4 11" & (patient_nan$consultation.q22_resultaTestDiagnostic!=1 | is.na(patient_nan$consultation.q22_resultaTestDiagnostic))] <- "non-specific symptoms or complaints"  
+
 patient_nan$clinpres[!is.na(patient_nan$consultation.q19_signeClinique) & patient_nan$consultation.q19_signeClinique != "" & is.na(patient_nan$clinpres)] <- "non-specific symptoms or complaints" 
 table(patient_nan$clinpres, useNA = "always") #832 patients with no symptoms reported
+
+# compare the clinpres based on the raw data with that checked one by one
+patient_nan <- merge(patient_nan, checked_clinpres_nan, by.x = "meta.instanceID", by.y = "metainstanceID")
+disease_labels <- c(
+  "1" = "malaria",
+  "2" = "Rhinitis/cold",
+  "3" = "pharyngitis/Rhinopharyngitis",
+  "4" = "acute otitis media",
+  "5" = "bronchitis",
+  "6" = "pneumonia",
+  "7" = "gastroenteritis",
+  "8" = "dengue",
+  "9" = "urinary tract infection",
+  "10" = "peptic ulcer",
+  "11" = "wound",
+  "12" = "unexplained fever",
+  "13" = "skin/soft tissue infection ",
+  "14" = "Pain/Asthenia/Constipation")
+patient_nan$clinpres_checked <- disease_labels[as.character(patient_nan$Diagnostic_final)]
+table(patient_nan$clinpres, patient_nan$clinpres_checked, useNA = "always")
+# deliberate on those that differ between both checks (by BI in the script on top and by DV in the imported file)
+# I checked each combination this is not aligned, using the cross table two rows up
+# inconsistent signs and symptoms and malaria positive test -> malaria in patients with reported symptoms
+patient_nan$clinpres[patient_nan$clinpres_checked=="bronchitis"&patient_nan$clinpres=="gastroenteritis" & patient_nan$consultation.q22_resultaTestDiagnostic==1] <- "malaria" 
+patient_nan$clinpres[patient_nan$clinpres_checked=="acute otitis media"&patient_nan$clinpres=="acute respiratory infection"] <- "acute otitis media" 
+patient_nan$clinpres[patient_nan$clinpres_checked=="acute otitis media"&patient_nan$consultation.q19_AutresigneClinique=="mal a l orielle"] <- "acute otitis media" 
+# when clinpres is "skin/soft tissue infection" and the check "bronchitis", the bronchitis is only based on a cough, while a wound and fever are reported, so I would stick to skin/soft tissue as most likely clin pres
+# when clinpres is "pharyngitis" and the check says bronchitis, in all cases tonsillitis is given as diagnostic, so stay with pharyngitis
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 2 3 10 12 13"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "acute respiratory infection" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="3 7 10 12 13"&patient_nan$consultation.q22_resultaTestDiagnostic==1] <- "malaria" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="13 3 1 8"&is.na(patient_nan$consultation.q22_resultaTestDiagnostic)] <- "acute respiratory infection" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 3 7 13"&patient_nan$consultation.q22_resultaTestDiagnostic==2] <- "acute respiratory infection" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="3 1 13"&patient_nan$consultation.q22_resultaTestDiagnostic==2] <- "acute respiratory infection" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 3 13 12"&patient_nan$consultation.q22_resultaTestDiagnostic==2] <- "acute respiratory infection" 
+patient_nan$clinpres[patient_nan$clinpres=="acute respiratory infection"&patient_nan$clinpres_checked=="gastroenteritis"&patient_nan$consultation.q19_signeClinique!="2 4 1 3"] <- "gastroenteritis" # checked one by one, all have vomiting and no other respi signs than cough, except one
+patient_nan$clinpres[patient_nan$clinpres=="gastroenteritis"&patient_nan$clinpres_checked=="malaria"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "malaria" # all have a malaria positive test with fever and vomiting or diarrhoea
+patient_nan$clinpres[patient_nan$clinpres=="unexplained gastro-intestinal"&patient_nan$clinpres_checked=="malaria"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "malaria" # all have a malaria positive test with fever and vomiting or diarrhoea
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="7 1 2"&patient_nan$consultation.q22_resultaTestDiagnostic==1&patient_nan$consultation.q25_maladieDiagnostic==""] <- "malaria" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique==""&patient_nan$consultation.q22_resultaTestDiagnostic==1&patient_nan$consultation.q25_maladieDiagnostic==""] <- "malaria" 
+# I kept those with as symptom "maux de dent" as "dental", also "maux de tête" or "maux de ventre" in combin. with malaria RDT+ as "malaria"
+# if only stomach aches recorded as symptom, I kept them as "non-specific symptoms or complaints", not all as peptic ulcer
+# if only stomach aches with other GI symptoms, I kept them as "unexplained gastro-intestinal", not all as peptic ulcer
+patient_nan$clinpres[patient_nan$consultation.q19_AutresigneClinique=="ulcere"&patient_nan$clinpres_checked=="peptic ulcer"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "peptic ulcer"
+# if typhoid was entered as diagnosis during the consultation, I kept it as such
+# if fever and multiple non specific symptoms (fatigue, malaise,...) I kept as unexplained fever
+# if multiple respi signs, I kept as acute RTI, not as rhinopharyngite, because not aligned with AWaRe Book presentations and impossible to say if rather bronchitis or rather pharyngitis
+patient_nan$clinpres[patient_nan$clinpres=="unexplained gastro-intestinal"&patient_nan$clinpres_checked=="pharyngitis/Rhinopharyngitis"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "non-specific symptoms or complaints" 
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 2 10 9"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "acute respiratory infection"  # since it's a combination of fever and other symptoms, consider respi signs priority
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 2 9"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "acute respiratory infection"  # since it's a combination of fever and other symptoms, consider respi signs priority
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 2 10 9"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "acute respiratory infection"  # since it's a combination of fever and other symptoms, consider respi signs priority
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 2 6"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "acute respiratory infection"  # since it's a combination of fever and other symptoms, consider respi signs priority
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 6 2"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "acute respiratory infection"  # since it's a combination of fever and other symptoms, consider respi signs priority
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 2"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "acute respiratory infection"  # since it's a combination of fever and other symptoms, consider respi signs priority
+# if rash over entire body + respi signs, I labelled acute respi infection, not skin/soft tissue infection; if rash over entire body without other symptoms, I labelled unexplained fever
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 18"&patient_nan$consultation.q25_maladieDiagnostic==""&is.na(patient_nan$consultation.q22_resultaTestDiagnostic)] <- "unexplained fever"  
+patient_nan <- patient_nan %>%  mutate(clinpres = case_when((consultation.q19_signeClinique %in% c("1 8 11", "1 11 12", "1 7 8 11 12 13", "1 7 11 12 13 8","1 11", "1 7 11 12 13") & patient_nan$consultation.q25_maladieDiagnostic=="") ~ "unexplained fever",
+      TRUE ~ clinpres)) # apart from fever, constipation is probably not suffieitn to classify as GI focus
+patient_nan <- patient_nan %>%  mutate(clinpres = case_when((consultation.q19_signeClinique %in% c("12 1", "1 12 8") & patient_nan$consultation.q25_maladieDiagnostic=="") ~ "unexplained fever",
+                                                            TRUE ~ clinpres)) # some now labelled as acute resp inf should have been unexplained fever
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 18"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "urinary tract infection"  # was labelled malaria but should be UTI
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="8 16 1 7"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "urinary tract infection"  # was labelled unexplained fever but should be UTI
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="16"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "urinary tract infection"  # were labelled non-specific symptoms or complaints but should be UTI
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="6 16"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "urinary tract infection"  # were labelled non-specific symptoms or complaints but should be UTI
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="16 1"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "urinary tract infection"  # were labelled non-specific symptoms or complaints but should be UTI
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="16 12"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "urinary tract infection"  # were labelled non-specific symptoms or complaints but should be UTI
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="7 16"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "urinary tract infection"  # were labelled non-specific symptoms or complaints but should be UTI
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="16 8"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "urinary tract infection"  # were labelled non-specific symptoms or complaints but should be UTI
+patient_nan$clinpres[patient_nan$consultation.q19_signeClinique=="1 6 16"&patient_nan$consultation.q25_maladieDiagnostic==""] <- "urinary tract infection"  # were labelled malaria but should be UTI
+patient_nan <- patient_nan %>%  mutate(clinpres = case_when((consultation.q19_signeClinique %in% c("6 12 16", "16 2 7", "3 1 16") & patient_nan$consultation.q25_maladieDiagnostic=="") ~ "urinary tract infection",
+                                                            TRUE ~ clinpres)) # were mislabelled
+# some combined acute resp infect signs combined with a wound -> labelled as acute respi infection
+# some wounds with fever -> labelled as skin/soft tissue infection
+
+# check individual cases
+# patient_nan %>% filter(clinpres=="skin/soft tissue infection"&clinpres_checked=="wound") %>% select(consultation.q19_signeClinique, consultation.q19_AutresigneClinique, consultation.q21_testDiagnostic, consultation.q22_resultaTestDiagnostic, consultation.q25_maladieDiagnostic, consultation.q25_autre_maladieDiagnostic)
 
 # check the clinical presentations vs the labeling as acute vs chronic illness and relabel when clearly no chronic illness
 table(patient_nan$clinpres, patient_nan$illness)
 table(patient_nan$consultation.q25_maladieDiagnostic[!is.na(patient_nan$clinpres)&patient_nan$illness=="yes_chronic"], useNA="always")
+table(patient_nan$clinpres[!is.na(patient_nan$clinpres)&patient_nan$illness=="yes_chronic"], useNA="always")
+
 patient_nan$illness[patient_nan$consultation.q25_maladieDiagnostic=="1"&!is.na(patient_nan$clinpres)&patient_nan$illness=="yes_chronic"] <- "yes_acute_illness" # malaria as diagnosis > acute
 patient_nan$illness[patient_nan$consultation.q25_maladieDiagnostic=="1 12"&!is.na(patient_nan$clinpres)&patient_nan$illness=="yes_chronic"] <- "yes_acute_illness" # malaria and peptic ulcer as diagnosis > acute
 patient_nan$illness[patient_nan$consultation.q25_maladieDiagnostic=="10"&!is.na(patient_nan$clinpres)&patient_nan$illness=="yes_chronic"] <- "yes_acute_illness" # dengue as diagnosis > acute
@@ -898,6 +994,7 @@ patient_nan$illness[patient_nan$consultation.q25_maladieDiagnostic=="11"&!is.na(
 patient_nan$illness[patient_nan$consultation.q25_maladieDiagnostic=="4"&!is.na(patient_nan$clinpres)&patient_nan$illness=="yes_chronic"] <- "yes_acute_illness" # angine as diagnostic
 patient_nan$illness[patient_nan$consultation.q25_maladieDiagnostic=="6"&!is.na(patient_nan$clinpres)&patient_nan$illness=="yes_chronic"] <- "yes_acute_illness" # bronchitis as diagnostic
 patient_nan$illness[patient_nan$consultation.q25_maladieDiagnostic=="7"&!is.na(patient_nan$clinpres)&patient_nan$illness=="yes_chronic"] <- "yes_acute_illness" # pneumonia as diagnostic
+patient_nan$illness[patient_nan$clinpres=="malaria"&patient_nan$illness=="yes_chronic"] <- "yes_acute_illness" # malaria as diagnosis > acute
 
 # group clinical presentations in broad categories
 patient_nan$clinpres_broad <- patient_nan$clinpres
@@ -955,8 +1052,9 @@ table(watchnan$antibiotic, useNA = "always")
 watchnan$cluster <- paste(watchnan$village.cluster, "-", watchnan$providertype, "-", watchnan$providernr) # 128 providers
 watchnan$cluster <- as.factor(watchnan$cluster)
 # many such clusters have just one record, which is not possible, and probably due to the providernr 
-watchnan$cluster_villageprovider <- paste(watchnan$village.cluster, "-", watchnan$providertype) # 128 providers
+watchnan$cluster_villageprovider <- paste(watchnan$village.cluster, "-", watchnan$providertype) # 36 providers
 watchnan$cluster_villageprovider <- as.factor(watchnan$cluster_villageprovider)
+table(watchnan$providernr)
 
 # remove observations at providers that do not exist in the list of providers at baseline: no healthcentre in Balogho, Kalwaka, Boulpon, no private pharmacy in Boulpon
 # remove when less than 10 observations from one provider, since due to poststratification weighing: informal provider in Gouloure
@@ -1147,6 +1245,7 @@ head(watch_acute_clinpres_offset)
 # head(watch_acute_offset_combinedpublicprivateclinics)
 
 # export dataframe with one observation per patient and the aggregated dataframe by provider
+write_xlsx(watch, "watch.xlsx")
 write.csv(watch_acute, "watch_acute.csv")
 write.csv(watch_acute_offset, "watch_acute_offset.csv")
 
@@ -1751,6 +1850,7 @@ subgroup_effects <- data.frame(
   CI_Upper = rr_ci_upper
 )
 print(subgroup_effects, row.names = FALSE)
+
 # subset Kimpese
 watch_acute_offset_kim <- watch_acute_offset %>% filter(site=="Kimpese")
 surveydesign <- svydesign(id = ~clusterID, data = watch_acute_offset_kim, weights = ~weight)
