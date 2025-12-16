@@ -27,4 +27,4 @@ Script are in R. Analyses can be run on the open anonymized dataframes available
 ## Data
 1. "simulatedpatients.xlsx" has the data with total scores (variable score) from the simulated patient visits, by infection scenario (clinpres), type of provider (providertype), round (pre, post)
 2. "watch.xlsx" has the patient survey data with a single row per patient, indicating whether the patient received at least one antibiotic (variable antibiotic) or at least one Watch antibiotic (variable watch)
-3. "patient_ab.xlsx" has thez patient survey data, but now specifying the antibiotics used. If the patient received multiple antibiotics, there are one row for each antibiotic received.
+3. "patient_ab.xlsx" has the patient survey data, specifying the antibiotics used. If the patient received multiple antibiotics, there are one row for each antibiotic received.
