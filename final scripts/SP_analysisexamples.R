@@ -1,5 +1,5 @@
 #######################################################################
-# use of SP data - research note                                        #
+# use of SP data - research note                                      #
 # frequency of itms and changes in score - pneumonia and diarrhoea    #
 #######################################################################
 
