@@ -3,8 +3,7 @@
 # frequency of itms and changes in score - pneumonia and diarrhoea    #
 #######################################################################
 
-#   install.packages(c("tidyverse", "readxl", "ggnewscale", "cowplot"))
-install.packages("ggtext")
+#   install.packages(c("tidyverse", "readxl", "ggnewscale", "cowplot", "ggtext"))
 library(tidyverse)
 library(readxl)
 library(ggnewscale)
@@ -12,7 +11,7 @@ library(cowplot)
 library(ggtext)
 
 
-pneumonia <- read_excel("~/ABR - RDU/CABU JPIAMR/ESCMID 2026/pneumonia.xlsx")
+pneumonia <- read_excel("~/public data/infection scenario specific simulated patient data Nanoro/pneumonia_anon.xlsx")
 # subset only Nanoro - in Kimpese pneumonia was only tested at pharmacies
 pneumonia <- pneumonia %>% filter(site=="nanoro")
 # keep only intervention clusters
@@ -542,7 +541,7 @@ ggsave(filename = "pneumonia_domain_scores.png", plot= p3, width = 6.5, height =
 
 #### GASTROENTERITIS FIG C - FREQUENCY OF ITEMS ON CHECKLIST ####
 
-diarrhoea <- read_excel("~/ABR - RDU/CABU JPIAMR/ESCMID 2026/diarrhoea_nan.xlsx")
+diarrhoea <- read_excel("~/public data/infection scenario specific simulated patient data Nanoro/diarrhoea_anon.xlsx")
 diarrhoea <- diarrhoea %>% filter(intervention == "intervention")
 table(diarrhoea$providertype, diarrhoea$round)
 
